@@ -1,0 +1,16 @@
+AC_INIT([xtools], [2.0.0])
+AC_CONFIG_SRCDIR([configure.ac])
+AC_CONFIG_AUX_DIR([m4])
+AC_CONFIG_MACRO_DIRS([m4])
+AM_INIT_AUTOMAKE([foreign])
+AM_CONFIG_HEADER([config.h])
+AM_EXTRA_RECURSIVE_TARGETS([stage1 stage2 stage3])
+
+AC_PROG_INSTALL
+AM_PROG_AS
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_LN_S
+
+AC_CONFIG_FILES([Makefile lib/Makefile getversion.c])
+AC_OUTPUT
