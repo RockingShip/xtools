@@ -5,8 +5,6 @@ X-C-Compiler/Assembler/Linker/Archiver.
 An experimental toolchain for supporting the [untangle](/RockingShip/untangle) fractal engine.
 It is based on the remastered 1991 school project [XTools-historic](/RockingShip/xtools-historic).
 
-This project is GPLv3 licensed. `"XTools-historic`
-
 Known issues:
  - Pointer arithmetic. The only working variant is "&arr[ofs]"`.
  - Initializers.
@@ -250,7 +248,7 @@ We use [SemVer](http://semver.org/) for versioning.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the GPLv3 License - see the [LICENSE.md](LICENSE.md) file for details
 
 ## Acknowledgments
 
