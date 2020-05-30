@@ -116,16 +116,6 @@ enum {
 };
 
 /*
- * Definitions for macro's
- */
-
-enum {
-	MNAME = 0,
-	MEXPAND,
-	MLAST,
-};
-
-/*
  * Definitions for switches
  */
 
@@ -228,15 +218,9 @@ int	debug;			// Add debug info to output
 int	errflag;		// True if an error has occurred
 int	hier_oper[30];		// Internal translation of the above
 int	hier_str[30];		// Array containing hierarchical operators
-int	iflevel;		// #if nesting level
-int	inchdl;			// handle for .H file
-int	inclnr;			// Linenumber of .H file
 int	inphdl;			// handle for .C file
 int	inplnr;			// Linenumber of .C file
 int	lishdl;			// handle for .LIS file
-int	mac[MACMAX*MLAST];
-int	macinx;			// Next free entry in mac
-int	macqinx;		// Next free entry in macq
 int	maklis;			// Listing -h specified
 int	nametab[NAMEMAX];	// Name table
 int	nxtlabel;		// Next label number
@@ -260,7 +244,6 @@ char	incfn[PATHMAX];		// include filename
 char	inpfn[PATHMAX];		// input filename
 char	*line;			// Pointer to current input buffer
 char	*lptr;			// Pointer to current character in input buffer
-char	macq[MACQMAX];
 char	namech[NAMEMAX];
 char	nch;			// Next character in line being scanned
 char	outfn[PATHMAX];		// output filename
@@ -316,14 +299,6 @@ gch() {
 keepch(int c) {
 	if (pinx < PBUFMAX)
 		pbuf[pinx++] = c;
-}
-
-/*
- * Skip all spaces in current line
- */
-white() {
-	while (ctype[ch] & CISSPACE)
-		gch();
 }
 
 /*
@@ -397,10 +372,8 @@ litchar() {
  * Generate error messages
  */
 warning(char *msg) {
-	if (inchdl)
-		printf("'%s' ", incfn);
-// Display original line
-	printf("%d: %s\n%%%s\n", inchdl ? inclnr : inplnr, sbuf, msg);
+	// Display original line
+	printf("%d: %s\n%%%s\n", inplnr, sbuf, msg);
 	fprintf(outhdl, ";%% %s\n", msg);
 }
 
@@ -510,15 +483,7 @@ readline() {
 	sbuf[0] = 0;
 	if (inphdl)
 		while (!sbuf[0]) {
-			if (inchdl) {
-				if (!fgets(sbuf, SBUFMAX - 1, inchdl)) {
-					fclose(inchdl);
-					inchdl = 0;
-					continue;
-				}
-				sbuf[SBUFMAX - 1] = 0;
-				++inclnr;
-			} else if (inphdl) {
+			if (inphdl) {
 				if (!fgets(sbuf, SBUFMAX - 1, inphdl)) {
 					fclose(inphdl);
 					inphdl = 0;
@@ -626,69 +591,19 @@ open_file(char *fn, char *mode) {
 /*
  *
  */
-findmac(register int sname) {
-	register int i;
-	register int *mptr;
-
-	for (i = 0; i < macinx; i++) {
-		mptr = &mac[i * MLAST];
-		if (mptr[MNAME] == sname)
-			return mptr;
-	}
-	return 0;
-}
-
-/*
- *
- */
 ifline() {
-	int sname;
-
 	while (1) {
 		readline();
 		if (!inphdl)
 			break;
 
 		// Skip blanks manually here, otherwise amatch() will call blanks() and this will cause recursion
-		white();
+		while (ctype[ch] & CISSPACE)
+			gch();
+
 		if (!ch)
 			continue; // Try again
-
-		if (amatch("#ifdef")) {
-			++iflevel;
-			if (!skiplevel) {
-				white();
-				if (!dohash(lptr, &sname))
-					error("identifier expected");
-				else if (!findmac(sname))
-					skiplevel = iflevel;
-			}
-		} else if (amatch("#ifndef")) {
-			++iflevel;
-			if (!skiplevel) {
-				white();
-				if (!dohash(lptr, &sname))
-					error("identifier expected");
-				else if (findmac(sname))
-					skiplevel = iflevel;
-			}
-		} else if (amatch("#else")) {
-			if (iflevel) {
-				if (skiplevel == iflevel)
-					skiplevel = 0;
-				else if (!skiplevel)
-					skiplevel = iflevel;
-			} else
-				error("no matching #if...");
-		} else if (amatch("#endif")) {
-			if (iflevel) {
-				if (skiplevel == iflevel)
-					skiplevel = 0;
-				--iflevel;
-			} else
-				error("no matching #if...");
-		} else if (!skiplevel)
-			return 0; // Process this line
+		return 0; // Process this line
 	}
 }
 
@@ -757,16 +672,6 @@ preprocess() {
 		} else if ((ch == '/') && (nch == '/')) {
 			// double-slash comment. Erase until end-of-line.
 			kill();
-		} else if (len = dohash(lptr, &sname)) {
-			if (mptr = findmac(sname)) {
-				cptr = mptr[MEXPAND];
-				while (i = *cptr++)
-					keepch(i);
-				bump(len);
-			} else {
-				while (len--)
-					keepch(gch());
-			}
 		} else
 			keepch(gch());
 	}
@@ -784,7 +689,7 @@ preprocess() {
 		len = strlen(line);
 		while (len && (ctype[line[len - 1]] & CISSPACE))
 			len--;
-		fprintf(outhdl, "; %d %s\n", inchdl ? inclnr : inplnr, line);
+		fprintf(outhdl, "; %d %s\n", inplnr, line);
 	}
 }
 
@@ -2424,64 +2329,6 @@ dump_ident(int ident[]) {
 	fprintf(outhdl, " VALUE=%d REG=%d\n", ident[IVALUE], ident[IREG]);
 }
 
-/*
- * Declare/define a macro
- */
-declmac() {
-	int sname;
-	register int len;
-	register int *mptr;
-
-	white();
-	if (!(len = dohash(lptr, &sname)))
-		error("identifier expected");
-	else if (macinx >= MACMAX)
-		fatal("#define overflow");
-	else {
-		// copy macroname
-		mptr = &mac[macinx++ * MLAST];
-		mptr[MNAME] = sname;
-		mptr[MEXPAND] = &macq[macqinx];
-		// Copy expansion
-		bump(len);
-		white();
-		while (ch) {
-			if (macqinx < MACQMAX)
-				macq[macqinx++] = ch;
-			gch();
-		}
-		if (macqinx < MACQMAX)
-			macq[macqinx++] = 0; // Terminator
-		if (macqinx >= MACQMAX)
-			fatal("#define string overflow");
-	}
-}
-
-/*
- * open an include file
- */
-doinclude() {
-	register char *p;
-
-	white();
-	if (*lptr != '"')
-		error("filename expected");
-	else if (inchdl)
-		error("Nested #include not allowed");
-	else {
-		// Modify sourceline to extract filename
-		p = incfn;
-		gch(); // Skip delimiter
-		while ((*p++ = gch()) != '"');
-		*--p = 0; // Remove delimiter
-
-		// Open file
-		inchdl = open_file(incfn, "r");
-	}
-
-	// make next read come from new file (if open)
-	kill();
-}
 
 /*
  *
@@ -2912,10 +2759,6 @@ parse() {
 	while (inphdl) {
 		if (amatch("enum"))
 			declenum(0);
-		else if (amatch("#include"))
-			doinclude();
-		else if (amatch("#define"))
-			declmac();
 		else {
 			int clas;
 			if (amatch("extern"))
@@ -2946,13 +2789,11 @@ initialize() {
 	register int i;
 
 	verbose = maklis = 0;
-	outhdl = lishdl = inphdl = inchdl = 0;
-	iflevel = skiplevel = 0;
+	outhdl = lishdl = inphdl = 0;
 	nxtlabel = 0;
 	currseg = 0;
 	inpfn[0] = 0;
-	macinx = macqinx = 0;
-	inclnr = inplnr = 0;
+	inplnr = 0;
 	regresvd = ((1 << REG_SP) | (1 << REG_AP) | (1 << REG_BPW) | (1 << REG_1) | (1 << REG_0) | (1 << REG_RETURN) | (1 << 0));
 	debug = 0;
 
@@ -3121,8 +2962,6 @@ main(int argc, int *argv) {
 	toseg(CODESEG); // setup initial segment
 
 	parse();             // GO !!!
-	if (iflevel)
-		error("no closing #endif");
 	fprintf(outhdl, "\t.END\n");
 
 	j = 0;
@@ -3130,7 +2969,6 @@ main(int argc, int *argv) {
 	fprintf(outhdl, "; Names        : %5d/%5d\n", j, NAMEMAX);
 	for (i = 0; i < SYMMAX && syms[i * ILAST + ISYM]; i++);
 	fprintf(outhdl, "; Identifiers  : %5d/%5d\n", i, SYMMAX);
-	fprintf(outhdl, "; Macros       : %5d/%5d\n", macinx, MACMAX);
 	fprintf(outhdl, "; Local labels : %5d\n", nxtlabel);
 	for (i = 1; (i < SWMAX) && sw[i * SLAST + SLABEL]; i++);
 	fprintf(outhdl, "; Switch cases : %5d/%5d\n", i - 1, SWMAX);

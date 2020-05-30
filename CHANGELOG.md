@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+```
+2020-05-30 12:30:46 Drop preprocessor.
+                    Preprocessor is an ancient language hack.
+```
+
 ## Release 2.0.0 2020-05-29 22:22:15
 
 Initial commit.

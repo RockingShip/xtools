@@ -184,7 +184,6 @@ enum {
  * Storage
  */
 
-int	curobj;			// index of current .OLB file
 int	curpos[LASTSEG];	// Position in segment
 int	curseg;			// Current segment
 int	datlen;			// length of data in datbuf
@@ -210,12 +209,9 @@ int	undef;			// Undef   -u specified
 int	verbose;		// Verbose -v specified
 
 char	*line;			// Pointer to current input buffer
-char	*lptr;			// Pointer to current character in input buffer
-char	ch;			// Current character in line being scanned
 char	datbuf[512];		// storage buffer for sto_data
 char	inpfn[PATHMAX];		// input filename
 char	lisfn[PATHMAX];		// listing filename
-char	nch;			// Next character in line being scanned
 char	outfn[PATHMAX];		// output filename
 
 //int exit(int code);

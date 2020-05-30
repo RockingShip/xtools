@@ -1,4 +1,4 @@
-#define BPW 2
+enum { BPW = 2 };
 
 _doprt(register char *optr, register char *cmd, int *args) {
 	register char ch;
