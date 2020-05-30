@@ -168,6 +168,22 @@ char	outfn[PATHMAX];		// destination .OLB filename
 /*
  *
  */
+error(char *msg) {
+	printf("%s");
+	errflag = 1;
+}
+
+/*
+ *
+ */
+fatal(char *msg) {
+	error(msg);
+	exit(0);
+}
+
+/*
+ *
+ */
 outname(register int hash) {
 	register int i;
 
@@ -230,22 +246,6 @@ dohash(register char *ident, int *retval) {
 	}
 	*retval = tab;
 	return len;
-}
-
-/*
- *
- */
-error(char *msg) {
-	printf("%s");
-	errflag = 1;
-}
-
-/*
- *
- */
-fatal(char *msg) {
-	error(msg);
-	exit(0);
 }
 
 /*

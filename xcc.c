@@ -29,7 +29,6 @@ enum {
 	MACQMAX = MACMAX * 7,	// Expansiontable for macro's
 	NAMEMAX = 1511,		// Size of nametable !!! MUST BE PRIME !!!
 	PATHMAX = 80,		// Length of filename
-	PBUFMAX = 512,		// Size of preprocessor buffer
 	SBUFMAX = 256,		// Size of source buffer
 	SWMAX = 100,		// Number of switch cases
 	SYMMAX = 300,		// Number of identifiers
@@ -242,12 +241,10 @@ char	ch;			// Current character in line being scanned
 char	ctype[256];		// character properties
 char	incfn[PATHMAX];		// include filename
 char	inpfn[PATHMAX];		// input filename
-char	*line;			// Pointer to current input buffer
 char	*lptr;			// Pointer to current character in input buffer
 char	namech[NAMEMAX];
 char	nch;			// Next character in line being scanned
 char	outfn[PATHMAX];		// output filename
-char	pbuf[PBUFMAX];
 char	sbuf[SBUFMAX];
 
 //exit(int code);
@@ -266,19 +263,59 @@ char	sbuf[SBUFMAX];
 //toupper(int ch);
 
 /*
- * Bump next characters in line (n = #chars or 0 for initialization)
+ * Generate error messages
  */
-bump(register int n) {
-	lptr = n ? lptr + n : line;
-	nch = (ch = lptr[0]) ? lptr[1] : 0;
+warning(char *msg) {
+	// Display original line
+	printf("%d: %s\n%%%s\n", inplnr, sbuf, msg);
+	fprintf(outhdl, ";%% %s\n", msg);
+}
+
+expected(char *lit) {
+	// Display original line
+	printf("%d: %s\n%% %s expected\n", inplnr, sbuf, lit);
+	fprintf(outhdl, ";%% %s expected\n", lit);
+	errflag = 1;
+}
+
+error(char *msg) {
+	warning(msg);
+	errflag = 1;
+}
+
+fatal(char *msg) {
+	error(msg);
+	exit(1);
+}
+
+exprerr() {
+	error("Invalid expression");
+}
+
+illname() {
+	error("illegal symbol name");
+}
+
+multidef() {
+	error("identifier already defined");
 }
 
 /*
- * Erase current line
+ *
  */
-kill() {
-	*line = 0;
-	bump(0);
+readline() {
+	sbuf[0] = 0;
+	if (inphdl) {
+		if (!fgets(sbuf, SBUFMAX - 1, inphdl)) {
+			fclose(inphdl);
+			inphdl = 0;
+		} else {
+			sbuf[SBUFMAX - 1] = 0;
+			++inplnr;
+			if (maklis)
+				fprintf(outhdl, "; %d %s\n", inplnr, sbuf);
+		}
+	}
 }
 
 /*
@@ -288,46 +325,51 @@ gch() {
 	register int c;
 
 	c = ch;
-	if (c)
-		bump(1);
+	if (!nch) {
+		readline();
+		lptr = sbuf;
+	} else {
+		lptr++;
+	}
+
+	// todo: remove all references to lptr and replace next with "nch = *lptr";
+	ch = lptr[0];
+	nch = ch ? lptr[1] : 0;
+
 	return c;
 }
 
 /*
- *
+ * Bump/skip next characters in line
  */
-keepch(int c) {
-	if (pinx < PBUFMAX)
-		pbuf[pinx++] = c;
+bump(int n) {
+	while (n) {
+		gch();
+		n--;
+	}
 }
 
 /*
  * Skip all spaces until next non-space
  */
 blanks() {
-	while (!ch || ctype[ch] & CISSPACE) {
-		if (!ch) {
-			if (!inphdl)
-				break;
-			else
-				preprocess();
-		} else
-			gch();
-	}
-}
+	while (1) {
+		if (ch == '/' && nch == '/') {
+			while (ch && ch != '\n')
+				gch();
+		}
 
-/*
- * Skip current symbol
- */
-junk() {
-	if (ctype[ch] & CSYMNEXT) {
-		while (ctype[ch] & CSYMNEXT)
-			gch();
-	} else {
-		while (ch && (~ctype[ch] & CSYMNEXT))
-			gch();
+		if (ch == '/' && nch == '*') {
+			while (inphdl && (ch != '*' || nch != '/'))
+				gch();
+			bump(2);
+		}
+
+		if (!ch || !(ctype[ch] & CISSPACE))
+			break;
+
+		gch();
 	}
-	blanks();
 }
 
 /*
@@ -336,7 +378,7 @@ junk() {
 litchar() {
 	register int i, oct;
 
-	if ((ch != '\\') || (nch == 0))
+	if (ch != '\\' || nch == 0)
 		return gch();
 	gch();
 	switch (ch) {
@@ -366,47 +408,6 @@ litchar() {
 		++i;
 	}
 	return i ? oct : gch();
-}
-
-/*
- * Generate error messages
- */
-warning(char *msg) {
-	// Display original line
-	printf("%d: %s\n%%%s\n", inplnr, sbuf, msg);
-	fprintf(outhdl, ";%% %s\n", msg);
-}
-
-error(char *msg) {
-	warning(msg);
-	errflag = 1;
-}
-
-fatal(char *msg) {
-	error(msg);
-	exit(1);
-}
-
-exprerr() {
-	error("Invalid expression");
-	junk();
-}
-
-needlval() {
-	error("must be lvalue");
-}
-
-illname() {
-	error("illegal symbol name");
-	junk();
-}
-
-multidef() {
-	error("identifier already defined");
-}
-
-undef() {
-	error("identifier undefined");
 }
 
 /*
@@ -479,50 +480,22 @@ omatch(register char *lit) {
 /*
  *
  */
-readline() {
-	sbuf[0] = 0;
-	if (inphdl)
-		while (!sbuf[0]) {
-			if (inphdl) {
-				if (!fgets(sbuf, SBUFMAX - 1, inphdl)) {
-					fclose(inphdl);
-					inphdl = 0;
-					break;
-				}
-				sbuf[SBUFMAX - 1] = 0;
-				++inplnr;
-			}
-		}
+needtoken(char *lit) {
+	if (match(lit))
+		return;
 
-	// Make buffer available
-	line = sbuf;
-	bump(0);
-}
+	expected(lit);
 
-/*
- *
- */
-needtoken(char *str) {
-	char txt[32], *p1, *p2;
-
-	if (!match(str)) {
-		p1 = txt;
-		p2 = "Expected ";
-		while (*p1++ = *p2++);
-		--p1; // Overwrite terminator
-		while (*p1++ = *str++);
-		error(txt);
-	}
+	// swallow chars until match
+	while (inphdl && !match(lit))
+		gch();
 }
 
 /*
  * semicolon enforcer
  */
 semicolon() {
-	if (!match(";")) {
-		error("no semicolon");
-		junk();
-	}
+	needtoken(";");
 }
 
 /*
@@ -586,111 +559,6 @@ open_file(char *fn, char *mode) {
 		return fd;
 	printf("fopen(%s,%s) failed\n", fn, mode);
 	exit(1);
-}
-
-/*
- *
- */
-ifline() {
-	while (1) {
-		readline();
-		if (!inphdl)
-			break;
-
-		// Skip blanks manually here, otherwise amatch() will call blanks() and this will cause recursion
-		while (ctype[ch] & CISSPACE)
-			gch();
-
-		if (!ch)
-			continue; // Try again
-		return 0; // Process this line
-	}
-}
-
-/*
- *
- */
-preprocess() {
-	register char *optr, *cptr;
-	register int i, len;
-	int *mptr;
-	int sname;
-
-	// get inputline
-	ifline();
-	if (!inphdl)
-		return 0;
-
-	// Now expand current line
-	pinx = 0;
-	while (ch) {
-		if (ctype[ch] & CISSPACE) {
-			keepch(' ');
-			while (ctype[ch] & CISSPACE)
-				gch();
-		} else if (ch == '"') {
-			keepch(gch());
-			while (ch != '"') {
-				if (ch == '\\') {
-					keepch(gch());
-					keepch(gch());
-				} else if (!ch) {
-					error("no quote");
-					break;
-				} else
-					keepch(gch());
-			}
-			keepch('\"');
-			gch();
-		} else if (ch == '\'') {
-			keepch(gch());
-			while (ch != '\'') {
-				if (ch == '\\') {
-					keepch(gch());
-					keepch(gch());
-				} else if (!ch) {
-					error("no apostrophe");
-					break;
-				} else
-					keepch(gch());
-			}
-			keepch('\'');
-			gch();
-		} else if ((ch == '/') && (nch == '*')) {
-			bump(2);
-			while ((ch != '*') || (nch != '/')) {
-				if (ch)
-					bump(1);
-				else {
-					readline();
-					if (!inphdl)
-						break;
-				}
-			}
-			bump(2);
-
-		} else if ((ch == '/') && (nch == '/')) {
-			// double-slash comment. Erase until end-of-line.
-			kill();
-		} else
-			keepch(gch());
-	}
-
-	// make line available
-	keepch(0);
-	if (pinx == PBUFMAX)
-		error("line too long");
-	line = pbuf;
-	bump(0);
-
-	// Copy line to listing
-	if (maklis) {
-		int len;
-		len = strlen(line);
-		while (len && (ctype[line[len - 1]] & CISSPACE))
-			len--;
-		fprintf(outhdl, "; %d %s\n", inplnr, line);
-	}
 }
 
 /*
@@ -1028,7 +896,7 @@ doasm(register int lval[]) {
 	needtoken("(");
 
 	if (!match("\"")) {
-		error("string expected");
+		expected("string");
 	} else {
 		fputc('\t', outhdl);
 		while (ch && (ch != '"'))
@@ -1919,16 +1787,14 @@ hier1(register int lval[]) {
 expression(register int lval[], int comma) {
 
 	if (!hier1(lval)) {
-		error("expression required");
-		junk();
+		expected("expression");
 		return 0;
 	}
 
 	while (comma && match(",")) {
 		freelval(lval);
 		if (!hier1(lval)) {
-			error("expression required");
-			junk();
+			expected("expression");
 			return 0;
 		}
 	}
@@ -2041,7 +1907,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		while (!match("}")) {
 			blanks();
 			if (!ch) {
-				error("no closing }"); // EOF
+				expected("}"); // EOF
 				return;
 			} else if (amatch("enum")) {
 				declenum(scope);
@@ -2238,7 +2104,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		if (!swbase)
 			error("not in switch");
 		if (!constexpr(&lbl3))
-			error("case value expected");
+			expected("case value");
 		needtoken(":");
 		for (i = swbase + 1; i < swinx; i++)
 			if (sw[i * SLAST + SCASE] == lbl3)
@@ -2352,7 +2218,7 @@ declenum(int scope) {
 
 		if (!(len = dohash(lptr, &sname))) {
 			illname();
-			kill();
+			semicolon();
 			return;
 		}
 		bump(len);
@@ -2381,7 +2247,7 @@ declenum(int scope) {
 		if (match("=")) {
 			expression(lval, 0);
 			if (!isConstant(lval)) {
-				error("constant expected");
+				expected("constant");
 				return;
 			}
 			seqnr = lval[LVALUE];
@@ -2639,8 +2505,7 @@ declfunc(int clas) {
 
 	// get procedure name
 	if (!(len = dohash(lptr, &sname))) {
-		error("illegal function name or declaration");
-		kill();
+		fatal("illegal function name or declaration");
 		return;
 	}
 	bump(len);
@@ -2680,8 +2545,7 @@ declfunc(int clas) {
 	gencode_R(TOK_LDR, REG_AP, 1);
 
 	// get parameters
-	if (!match("("))
-		error("no open parent");
+	needtoken("(");
 	blanks();
 
 	// now define arguments
@@ -2958,10 +2822,13 @@ main(int argc, int *argv) {
 	inphdl = open_file(inpfn, "r");
 	outhdl = open_file(outfn, "w");
 
-	preprocess(); // fetch first line
-	toseg(CODESEG); // setup initial segment
+	ch = nch = 0;
+	gch(); // load firsty character
+	blanks(); // skip initial comments
 
-	parse();             // GO !!!
+	toseg(CODESEG); // setup initial segment
+	parse(); // GO !!!
+
 	fprintf(outhdl, "\t.END\n");
 
 	j = 0;

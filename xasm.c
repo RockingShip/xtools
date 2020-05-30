@@ -237,20 +237,16 @@ int	maxpos[LASTSEG];	// Size in segment
 int	names[NAMEMAX * NLAST];	// string name table
 int	outhdl;			// handle for .OBJ file
 int	pass;			// Pass number
-int	pinx;			// Position in preprocessor buffer
-int	undef;			// Auto-external -u specified
 int	verbose;		// Verbose -v specified
 
 char	ch;			// Current character in line being scanned
 char	ctype[256];		// character properties
 char	datbuf[128];		// storage buffer for sto_data
 char	inpfn[PATHMAX];		// input filename
-char	*line;			// Pointer to current input buffer
 char	lisfn[PATHMAX];		// listing filename
 char	*lptr;			// Pointer to current character in input buffer
 char	nch;			// Next character in line being scanned
 char	outfn[PATHMAX];		// output filename
-char	pbuf[PBUFMAX];
 char	sbuf[SBUFMAX];
 
 //exit(int code);
@@ -267,19 +263,62 @@ char	sbuf[SBUFMAX];
 //toupper(int ch);
 
 /*
- * Bump next characters in line (n = #chars or 0 for initialization)
+ * Generate error messages
  */
-bump(register int n) {
-	lptr = n ? lptr + n : line;
-	nch = (ch = lptr[0]) ? lptr[1] : 0;
+error(char *msg) {
+	// Display original line
+	printf("%d: %s\n%%%s\n", inplnr, sbuf, msg);
+	if (lishdl)
+		fprintf(lishdl, ";%d %%%s\n", inplnr, msg);
+
+	errflag = 1;
+}
+
+fatal(char *msg) {
+	error(msg);
+	exit(1);
+}
+
+exprerr() {
+	error("Invalid expression");
 }
 
 /*
- * Erase current line
+ *
  */
-kill() {
-	*line = 0;
-	bump(0);
+readline() {
+	sbuf[0] = 0;
+	if (inphdl) {
+		if (!fgets(sbuf, SBUFMAX - 1, inphdl)) {
+			fclose(inphdl);
+			inphdl = 0;
+		} else {
+			sbuf[SBUFMAX - 1] = 0;
+			++inplnr;
+
+			// trim training spaces
+			int i;
+			i = strlen(sbuf);
+			while (i > 0 && (ctype[sbuf[i - 1]] & CISSPACE))
+				sbuf[--i] = 0;
+
+			// Copy line to listing
+			if (lishdl) {
+				if (curseg == CODESEG)
+					fprintf(lishdl, "C%04x:\t%s\n", curpos[CODESEG] & 0xffff, sbuf);
+				else if (curseg == DATASEG)
+					fprintf(lishdl, "D%04x:\t%s\n", curpos[DATASEG] & 0xffff, sbuf);
+				else if (curseg == TEXTSEG)
+					fprintf(lishdl, "T%04x:\t%s\n", curpos[TEXTSEG] & 0xffff, sbuf);
+				else
+					fprintf(lishdl, "U%04x:\t%s\n", curpos[UDEFSEG] & 0xffff, sbuf);
+			}
+		}
+	}
+
+	lptr = sbuf;
+	ch = lptr[0];
+	nch = ch ? lptr[1] : 0;
 }
 
 /*
@@ -289,39 +328,39 @@ gch() {
 	register int c;
 
 	c = ch;
-	if (c)
-		bump(1);
+	if (ch)
+		nch = *lptr++;
+	else
+		nch = 0;
+
+	ch = lptr[0];
+	nch = ch ? lptr[1] : 0;
+
 	return c;
 }
 
 /*
- *
+ * Bump/skip next characters in line
  */
-keepch(int c) {
-	if (pinx < PBUFMAX)
-		pbuf[pinx++] = c;
+bump(int n) {
+	lptr += n;
+	ch = lptr[0];
+	nch = ch ? lptr[1] : 0;
 }
 
 /*
- * Skip all spaces in current line
+ * Skip all spaces until next non-space
  */
-white() {
-	while (ctype[ch] & CISSPACE)
+blanks() {
+	while (1) {
+		if (ch == ';')
+			*lptr = ch = 0;
+
+		if (!ch || !(ctype[ch] & CISSPACE))
+			break;
+
 		gch();
-}
-
-/*
- * Skip current symbol
- */
-junk() {
-	if (ctype[ch] & CSYMNEXT) {
-		while (ctype[ch] & CSYMNEXT)
-			gch();
-	} else {
-		while (ch && (~ctype[ch] & CSYMNEXT))
-			gch();
 	}
-	white();
 }
 
 /*
@@ -363,34 +402,12 @@ litchar() {
 }
 
 /*
- * Generate error messages
- */
-error(char *msg) {
-	// Display original line
-	printf("%d: %s\n%%%s\n", inplnr, sbuf, msg);
-	if (lishdl)
-		fprintf(lishdl, ";%d %%%s\n", inplnr, msg);
-
-	errflag = 1;
-}
-
-fatal(char *msg) {
-	error(msg);
-	exit(1);
-}
-
-exprerr() {
-	error("Invalid expression");
-	junk();
-}
-
-/*
  * Return 'index' if start next token equals 'lit'
  */
 match(register char *lit) {
 	register int i;
 
-	white();
+	blanks();
 
 	i = 0;
 	while (lit[i]) {
@@ -409,7 +426,7 @@ match(register char *lit) {
 amatch(register char *lit) {
 	register int i;
 
-	white();
+	blanks();
 
 	i = 0;
 	while (lit[i]) {
@@ -428,7 +445,7 @@ amatch(register char *lit) {
  * Return 'true' if next operator equals 'lit'
  */
 omatch(register char *lit) {
-	white();
+	blanks();
 	if (lptr[0] != lit[0])
 		return 0;
 	if (lit[1]) {
@@ -441,45 +458,6 @@ omatch(register char *lit) {
 		bump(1);
 	}
 	return 1;
-}
-
-/*
- *
- */
-readline() {
-	sbuf[0] = 0;
-	if (inphdl)
-		while (!sbuf[0]) {
-			if (inphdl) {
-				if (!fgets(sbuf, SBUFMAX - 1, inphdl)) {
-					fclose(inphdl);
-					inphdl = 0;
-					break;
-				}
-				sbuf[SBUFMAX - 1] = 0;
-				++inplnr;
-			}
-		}
-
-	// Make buffer available
-	line = sbuf;
-	bump(0);
-}
-
-/*
- *
- */
-needtoken(char *str) {
-	char txt[32], *p1, *p2;
-
-	if (!match(str)) {
-		p1 = txt;
-		p2 = "Expected ";
-		while (*p1++ = *p2++);
-		--p1; // Overwrite terminator
-		while (*p1++ = *str++);
-		error(txt);
-	}
 }
 
 foutname(register int hash) {
@@ -546,103 +524,6 @@ dohash(register char *name, int *retval) {
 	}
 	*retval = tab;
 	return len;
-}
-
-/*
- *
- */
-ifline() {
-	int sname;
-
-	while (1) {
-		readline();
-		if (!inphdl)
-			break;
-
-		// Skip blanks manually here, otherwise amatch() will call blanks() and this will cause recursion
-		white();
-		if (!ch)
-			continue; // Try again
-
-		return 0; // Process this line
-	}
-}
-
-/*
- *
- */
-preprocess() {
-	register char *optr, *cptr;
-	register int i, len;
-	int *mptr;
-	int sname;
-
-	// get inputline
-	ifline();
-	if (!inphdl)
-		return;
-
-	// Now expand current line
-	pinx = 0;
-	while (ch) {
-		if (ctype[ch] & CISSPACE) {
-			keepch(' ');
-			while (ctype[ch] & CISSPACE)
-				gch();
-		} else if (ch == '"') {
-			keepch(gch());
-			while (ch != '"') {
-				if (ch == '\\') {
-					keepch(gch());
-					keepch(gch());
-				} else if (!ch) {
-					if (pass == 1)
-						error("no quote");
-					break;
-				} else
-					keepch(gch());
-			}
-			keepch('\"');
-			gch();
-		} else if (ch == '\'') {
-			keepch(gch());
-			while (ch != '\'') {
-				if (ch == '\\') {
-					keepch(gch());
-					keepch(gch());
-				} else if (!ch) {
-					if (pass == 1)
-						error("no apostrophe");
-					break;
-				} else
-					keepch(gch());
-			}
-			keepch('\'');
-			gch();
-		} else if (ch == ';') {
-			break;
-		} else
-			keepch(gch());
-	}
-
-	// make line available
-	keepch(0);
-	if (pinx == PBUFMAX)
-		error("line too long");
-	line = pbuf;
-	bump(0);
-
-	// Copy line to listing
-	if (lishdl) {
-		if (curseg == CODESEG)
-			fprintf(lishdl, ";C%04x: %s\n", curpos[CODESEG] & 0xffff, pbuf);
-		else if (curseg == DATASEG)
-			fprintf(lishdl, ";D%04x: %s\n", curpos[DATASEG] & 0xffff, pbuf);
-		else if (curseg == TEXTSEG)
-			fprintf(lishdl, ";T%04x: %s\n", curpos[TEXTSEG] & 0xffff, pbuf);
-		else
-			fprintf(lishdl, ";U%04x: %s\n", curpos[UDEFSEG] & 0xffff, pbuf);
-	}
 }
 
 /*
@@ -1005,7 +886,8 @@ primary(register int lval[]) {
 
 	if (match("<")) {  // <expression,...>
 		expression(lval);
-		needtoken(">");
+		if (!match(">"))
+			error("> expected");
 		return 1;
 	}
 
@@ -1262,7 +1144,7 @@ save_seg_size() {
  *
  */
 need_comma() {
-	white();
+	blanks();
 	if (ch == ',')
 		gch();
 	else
@@ -1276,14 +1158,13 @@ need_reg() {
 	int hash, reg;
 	register int len, *p;
 
-	white();
+	blanks();
 	if (!ch)
 		len = 0;
 	else
 		len = dohash(lptr, &hash);
 	if (!len) {
 		error("register expected");
-		junk();
 		reg = 0;
 	} else {
 		bump(len);
@@ -1325,21 +1206,21 @@ need_imm() {
 need_mem() {
 	int lval[LLAST];
 
-	white();
+	blanks();
 	if (ch != '(')
 		need_imm();
 	else
 		sto_data(0, BPW); // no address
 
 	// test for registers
-	white();
+	blanks();
 	if (ch != '(') {
 		sto_data(0, 1); // dummy reg
 	} else {
 		gch();
-		white();
+		blanks();
 		need_reg();
-		white();
+		blanks();
 		if (ch == ')')
 			gch();
 		else
@@ -1458,7 +1339,7 @@ do_pseudo(register int p[]) {
 		break;
 	default:
 		error("-> pseudo");
-		kill();
+		ch = 0;
 		break;
 	}
 }
@@ -1466,60 +1347,60 @@ do_pseudo(register int p[]) {
 do_opcode(register int p[]) {
 	if (pass == 1) {
 		switch (p[NVALUE]) {
-			case OPC_ILLEGAL:
-			case OPC_RSB:
-				curpos[curseg] += 1;
-				break;
-			case OPC_PSHR:
-			case OPC_POPR:
-			case OPC_SVC:
-				curpos[curseg] += 3;
-				break;
-			case OPC_PSHB:
-			case OPC_PSHW:
-			case OPC_PSHA:
-			case OPC_JSB:
-				curpos[curseg] += 4;
-				break;
-			case OPC_NEG:
-			case OPC_NOT:
-				curpos[curseg] += 2;
-				break;
-			case OPC_ADD:
-			case OPC_SUB:
-			case OPC_MUL:
-			case OPC_DIV:
-			case OPC_MOD:
-			case OPC_OR:
-			case OPC_XOR:
-			case OPC_AND:
-			case OPC_LSR:
-			case OPC_LSL:
-			case OPC_LDR:
-			case OPC_CMP:
-				curpos[curseg] += 3;
-				break;
-			case OPC_BEQ:
-			case OPC_BNE:
-			case OPC_BLT:
-			case OPC_BLE:
-			case OPC_BGT:
-			case OPC_BGE:
-			case OPC_JMP:
-				curpos[curseg] += 4;
-				break;
-			case OPC_LDB:
-			case OPC_LDW:
-			case OPC_LEA:
-			case OPC_STB:
-			case OPC_STW:
-				curpos[curseg] += 5;
-				break;
-			default:
-				error("unimplemented opcode");
-				break;
+		case OPC_ILLEGAL:
+		case OPC_RSB:
+			curpos[curseg] += 1;
+			break;
+		case OPC_PSHR:
+		case OPC_POPR:
+		case OPC_SVC:
+			curpos[curseg] += 3;
+			break;
+		case OPC_PSHB:
+		case OPC_PSHW:
+		case OPC_PSHA:
+		case OPC_JSB:
+			curpos[curseg] += 4;
+			break;
+		case OPC_NEG:
+		case OPC_NOT:
+			curpos[curseg] += 2;
+			break;
+		case OPC_ADD:
+		case OPC_SUB:
+		case OPC_MUL:
+		case OPC_DIV:
+		case OPC_MOD:
+		case OPC_OR:
+		case OPC_XOR:
+		case OPC_AND:
+		case OPC_LSR:
+		case OPC_LSL:
+		case OPC_LDR:
+		case OPC_CMP:
+			curpos[curseg] += 3;
+			break;
+		case OPC_BEQ:
+		case OPC_BNE:
+		case OPC_BLT:
+		case OPC_BLE:
+		case OPC_BGT:
+		case OPC_BGE:
+		case OPC_JMP:
+			curpos[curseg] += 4;
+			break;
+		case OPC_LDB:
+		case OPC_LDW:
+		case OPC_LEA:
+		case OPC_STB:
+		case OPC_STW:
+			curpos[curseg] += 5;
+			break;
+		default:
+			error("unimplemented opcode");
+			break;
 		}
-		kill();
+		ch = 0; // ignore rest of line
 	} else {
 		sto_data(p[NVALUE], 1);
 		switch (p[NVALUE]) {
@@ -1585,7 +1466,7 @@ do_opcode(register int p[]) {
 			break;
 		default:
 			error("unimplemented opcode");
-			kill();
+			ch = 0; // ignore rest of line
 			break;
 		}
 	}
@@ -1603,14 +1484,13 @@ parse() {
 		if (debug && (pass == 2))
 			fprintf(outhdl, ";%s\n", lptr);
 		while (1) {
-			white();
+			blanks();
 			if (!ch)
 				break; // end of line
 			len = dohash(lptr, &hash);
 			if (!len) {
 				if (pass == 1)
 					error("opcode expected");
-				kill();
 				break;
 			}
 			bump(len);
@@ -1622,8 +1502,10 @@ parse() {
 			case UNDEF:
 				if (match(":")) {
 					ext = match(":");
-					if (verbose && ext)
-						printf("%s\n", line);
+					if (verbose && ext) {
+						outname(hash);
+						printf("\n");
+					}
 					if (curseg == CODESEG) {
 						p[NTYPE] = CODE;
 						p[NVALUE] = curpos[CODESEG];
@@ -1643,8 +1525,8 @@ parse() {
 					len = dohash(lptr, &p[NVALUE]);
 					if (!len) {
 						if (pass == 1)
-							error("use #define");
-						kill();
+							error("undefined");
+						ch = 0;
 					} else {
 						bump(len);
 						p[NTYPE] = LINK;
@@ -1656,7 +1538,7 @@ parse() {
 				} else {
 					if (pass == 1)
 						error("unknown opcode");
-					kill();
+					ch = 0;
 					break;
 				}
 			case ABS:
@@ -1666,8 +1548,10 @@ parse() {
 			case UDEF:
 				if (match(":")) {
 					ext = match(":");
-					if (verbose && ext)
-						printf("%s\n", line);
+					if (verbose && ext) {
+						outname(hash);
+						printf("\n");
+					}
 					if (p[NTYPE] == CODE) {
 						if ((curseg != CODESEG) || (p[NVALUE] != curpos[CODESEG]))
 							if (pass == 1)
@@ -1712,7 +1596,7 @@ parse() {
 					break;
 				} else {
 					error("internal error");
-					kill();
+					ch = 0;
 					break;
 				}
 			case OPCODE:
@@ -1720,13 +1604,13 @@ parse() {
 				break;
 			case PSEUDO:
 				if (p[NVALUE] == PSEUDO_END)
-					return; // DONE
+					return; // don't read next line keeping file open
 				do_pseudo(p);
 				break;
 			case LINK:
 				if (pass == 1)
 					error("multiply defined");
-				kill(); // errors displayed in pass 1
+				ch = 0; // errors displayed in pass 1
 				break;
 			default:
 				if (pass == 1)
@@ -1735,12 +1619,12 @@ parse() {
 			}
 
 			// test for junk
-			white();
+			blanks();
 			if (ch)
 				error("encountered junk");
 			break;
 		}
-		preprocess();  // fetch next line
+		readline();
 	}
 }
 
@@ -1996,52 +1880,59 @@ main(int argc, int *argv) {
 	register int i, j, *p;
 
 	initialize();        // initialize all variables
-
 	startup(argv);       // Process commandline options
 
-	inphdl = open_file(inpfn, "r");
-	outhdl = open_file(outfn, "w");
-	if (lisfn[0])
-		lishdl = open_file(lisfn, "w");
+	{
+		inphdl = open_file(inpfn, "r");
 
-	preprocess();        // fetch first line
+		inplnr = 0;
+		curseg = CODESEG;
+		curpos[CODESEG] = curpos[DATASEG] = curpos[TEXTSEG] = curpos[UDEFSEG] = 0;
+		datlen = 0;
 
-	pass = 1;
-	if (verbose)
-		printf("Pass 1\n");
-	if (lishdl)
-		fprintf(lishdl, "Pass 1\n");
-	parse(); // GO !!!
+		pass = 1;
+		if (verbose)
+			printf("Pass 1\n");
 
-	if (!inphdl)
-		printf("%%missing .END statement\n");
-	else
-		fclose(inphdl);
+		readline(); // fetch first line
+		parse(); // GO !!!
+		save_seg_size();
 
-	inphdl = open_file(inpfn, "r");
-	inplnr = 0;
-	save_seg_size();
-	curseg = CODESEG;
-	curpos[CODESEG] = curpos[DATASEG] = curpos[TEXTSEG] = curpos[UDEFSEG] = 0;
-	datlen = 0;
+		if (!inphdl)
+			printf("%%missing .END statement\n");
+		else
+			fclose(inphdl);
+	}
 
-	pass = 2;
-	if (verbose)
-		printf("Pass 2\n");
-	if (lishdl)
-		fprintf(lishdl, "Pass 2\n");
-	parse(); // GO !!!
+	{
+		inphdl = open_file(inpfn, "r");
+		outhdl = open_file(outfn, "w");
+		if (lisfn[0])
+			lishdl = open_file(lisfn, "w");
 
-	sto_cmd(REL_END, 0);
+		inplnr = 0;
+		curseg = CODESEG;
+		curpos[CODESEG] = curpos[DATASEG] = curpos[TEXTSEG] = curpos[UDEFSEG] = 0;
+		datlen = 0;
+
+		pass = 2;
+		if (verbose)
+			printf("Pass 2\n");
+
+		readline(); // fetch first line
+		parse(); // GO !!!
+
+		sto_cmd(REL_END, 0);
+	}
 
 	if (lishdl) {
-		fprintf(lishdl, "CODE         : %04x (%5d)\n", maxpos[CODESEG] & 0xffff, maxpos[CODESEG] & 0xffff);
-		fprintf(lishdl, "DATA         : %04x (%5d)\n", maxpos[DATASEG] & 0xffff, maxpos[DATASEG] & 0xffff);
-		fprintf(lishdl, "TEXT         : %04x (%5d)\n", maxpos[TEXTSEG] & 0xffff, maxpos[TEXTSEG] & 0xffff);
-		fprintf(lishdl, "UDEF         : %04x (%5d)\n", maxpos[UDEFSEG] & 0xffff, maxpos[UDEFSEG] & 0xffff);
+		fprintf(lishdl, "CODE  : 0x%04x (%5d)\n", maxpos[CODESEG] & 0xffff, maxpos[CODESEG] & 0xffff);
+		fprintf(lishdl, "DATA  : 0x%04x (%5d)\n", maxpos[DATASEG] & 0xffff, maxpos[DATASEG] & 0xffff);
+		fprintf(lishdl, "TEXT  : 0x%04x (%5d)\n", maxpos[TEXTSEG] & 0xffff, maxpos[TEXTSEG] & 0xffff);
+		fprintf(lishdl, "UDEF  : 0x%04x (%5d)\n", maxpos[UDEFSEG] & 0xffff, maxpos[UDEFSEG] & 0xffff);
 		j = 0;
 		for (i = 0; i < NAMEMAX; i++) if (names[i * NLAST + NCHAR]) j++;
-		fprintf(lishdl, "Names        : %5d(%5d)\n", j, NAMEMAX);
+		fprintf(lishdl, "Names : %5d(%5d)\n", j, NAMEMAX);
 	}
 
 	return errflag;
