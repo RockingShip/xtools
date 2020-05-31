@@ -25,8 +25,6 @@
  */
 
 enum {
-	MACMAX = 300,		// Number of definable macro's
-	MACQMAX = MACMAX * 7,	// Expansiontable for macro's
 	NAMEMAX = 1511,		// Size of nametable !!! MUST BE PRIME !!!
 	PATHMAX = 80,		// Length of filename
 	SBUFMAX = 256,		// Size of source buffer
@@ -45,7 +43,7 @@ enum {
 };
 
 /*
- * Possible values for "CLASS"
+ * Possible values for storage "CLASS"
  */
 
 enum {
@@ -59,13 +57,13 @@ enum {
 };
 
 /*
- * Possible values for "TYPE"
+ * Possible values for data "TYPE"
  */
 
 enum {
-	VARIABLE = 1,
+	ADDRESS = 1,
+	VARIABLE,
 	ARRAY,
-	LABEL,
 	FUNCTION,
 	EXPR,
 	BRANCH,
@@ -93,8 +91,8 @@ enum {
 	LNAME,
 	LVALUE,
 	LREG,
-	LFALSE,
 	LTRUE,
+	LFALSE,
 	LLAST,
 };
 
@@ -683,10 +681,6 @@ gencode_M(int opc, int lreg, int name, int ofs, int rreg) {
 	if (lreg >= 0)
 		fprintf(outhdl, "R%d,", lreg);
 
-	// apply any stack ajustments
-	if (rreg == REG_SP)
-		ofs = ofs - csp;
-
 	if (name) {
 		if (name > 0){
 			fprintf(outhdl, "_");
@@ -704,6 +698,20 @@ gencode_M(int opc, int lreg, int name, int ofs, int rreg) {
 
 	fprintf(outhdl, "\n");
 }
+
+gencode_lval(int opc, int lreg, int lval[]) {
+	int name, ofs, rreg;
+	name = lval[LNAME];
+	ofs = lval[LVALUE];
+	rreg = lval[LREG];
+
+	// apply any stack adjustments for SP_AUTO
+	if (rreg == REG_SP)
+		ofs = ofs - csp;
+
+	gencode_M(opc, lreg, name, ofs, rreg);
+}
+
 
 /*
  * Allocate a free register
@@ -859,7 +867,7 @@ loadlval(register int lval[], register int reg) {
 		freelval(lval);
 		if (reg <= 0)
 			reg = allocreg();
-		gencode_M(isBPW(lval) ? TOK_LDW : TOK_LDB, reg, lval[LNAME], lval[LVALUE], lval[LREG]);
+		gencode_lval(isBPW(lval) ? TOK_LDW : TOK_LDB, reg, lval);
 
 		lval[LEA] = EA_ADDR;
 		// NOTE: lval[LPTR] can be non-zero
@@ -870,7 +878,7 @@ loadlval(register int lval[], register int reg) {
 		freelval(lval);
 		if (reg <= 0)
 			reg = allocreg();
-		gencode_M(TOK_LDA, reg, lval[LNAME], lval[LVALUE], lval[LREG]);
+		gencode_lval(TOK_LDA, reg, lval);
 
 		lval[LEA] = EA_ADDR;
 		lval[LPTR] = 0;
@@ -1369,7 +1377,7 @@ step(register int pre, register int lval[], register int post) {
 		reg = allocreg();
 		loadlval(lval, reg);
 		gencode_R((pre | post), lval[LREG], isIPTR(lval) ? REG_BPW : REG_1);
-		gencode_M(isBPW(dest) ? TOK_STW : TOK_STB, lval[LREG], dest[LNAME], dest[LVALUE], dest[LREG]);
+		gencode_lval(isBPW(dest) ? TOK_STW : TOK_STB, lval[LREG], dest);
 		if (post) {
 			gencode_R((TOK_ADD + TOK_SUB - post), reg, isIPTR(lval) ? REG_BPW : REG_1);
 			lval[LREG] = reg;
@@ -1448,9 +1456,9 @@ hier14(register int lval[]) {
 				freelval(lval2);
 				// Push onto stack
 				if (lval2[LEA] != EA_IND)
-					gencode_M(TOK_PSHA, -1, lval2[LNAME], lval2[LVALUE], lval2[LREG]);
+					gencode_lval(TOK_PSHA, -1, lval2);
 				else
-					gencode_M(isBPW(lval2) ? TOK_PSHW : TOK_PSHB, -1, lval2[LNAME], lval2[LVALUE], lval2[LREG]);
+					gencode_lval(isBPW(lval2) ? TOK_PSHW : TOK_PSHB, -1, lval2);
 			}
 			// increment ARGC
 			csp -= BPW;
@@ -1464,7 +1472,7 @@ hier14(register int lval[]) {
 		gencode_I(TOK_PSHA, -1, argc);
 
 		// call
-		gencode_M(TOK_JSB, -1, lval[LNAME], lval[LVALUE], lval[LREG]);
+		gencode_lval(TOK_JSB, -1, lval);
 		freelval(lval);
 
 		// Pop args
@@ -1747,7 +1755,7 @@ hier1(register int lval[]) {
 		if (isRegister(lval))
 			gencode_R(TOK_LDR, lval[LREG], rval[LREG]);
 		else {
-			gencode_M(isBPW(lval) ? TOK_STW : TOK_STB, rval[LREG], lval[LNAME], lval[LVALUE], lval[LREG]);
+			gencode_lval(isBPW(lval) ? TOK_STW : TOK_STB, rval[LREG], lval);
 			freelval(lval);
 		}
 		lval[LNAME] = 0;
@@ -1770,7 +1778,7 @@ hier1(register int lval[]) {
 		if (isRegister(dest))
 			gencode_R(TOK_LDR, dest[LREG], lval[LREG]);
 		else
-			gencode_M(isBPW(lval) ? TOK_STW : TOK_STB, lval[LREG], dest[LNAME], dest[LVALUE], dest[LREG]);
+			gencode_lval(isBPW(lval) ? TOK_STW : TOK_STB, lval[LREG], dest);
 	}
 
 	// resulting type is undefined, so modify LTYPE
@@ -2180,9 +2188,9 @@ dump_ident(int ident[]) {
 		classnames[6] = "GLOBAL";
 		classnames[7] = "REGISTER";
 		typenames[0] = "0";
-		typenames[1] = "VARIABLE";
-		typenames[2] = "ARRAY";
-		typenames[3] = "LABEL";
+		typenames[1] = "ADDRESS";
+		typenames[2] = "VARIABLE";
+		typenames[3] = "ARRAY";
 		typenames[4] = "FUNCTION";
 		typenames[5] = "EXPR";
 		typenames[6] = "BRANCH";

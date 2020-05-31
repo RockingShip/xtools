@@ -25,11 +25,8 @@
  */
 
 enum {
-	MACMAX = 300,		// Number of definable macro's
-	MACQMAX = MACMAX * 7,	// Expansiontable for macro's
 	NAMEMAX = 2503,		// Size of nametable !!! MUST BE PRIME !!!
 	PATHMAX = 80,		// Length of filename
-	PBUFMAX = 512,		// Size of preprocessor buffer
 	SBUFMAX = 256,		// Size of source buffer
 };
 
