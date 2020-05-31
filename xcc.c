@@ -65,7 +65,6 @@ enum {
 	VARIABLE,
 	ARRAY,
 	FUNCTION,
-	EXPR,
 	BRANCH,
 };
 
@@ -753,7 +752,7 @@ freereg(register int reg) {
  */
 isConstant(register int lval[])
 {
-	return (lval[LTYPE] == EXPR && lval[LPTR] == 0 && lval[LEA] == EA_ADDR && lval[LNAME] == 0 && lval[LREG] == 0);
+	return (lval[LTYPE] == ADDRESS && lval[LNAME] == 0 && lval[LREG] == 0);
 }
 
 /*
@@ -763,7 +762,9 @@ isConstant(register int lval[])
  */
 isRegister(register int lval[])
 {
-	if (lval[LTYPE] == VARIABLE || lval[LTYPE] == ARRAY || lval[LTYPE] == EXPR) {
+	if (lval[LTYPE] == ADDRESS && lval[LNAME] == 0 && lval[LVALUE] == 0)
+		return 1;
+	if (lval[LTYPE] == VARIABLE || lval[LTYPE] == ARRAY) {
 		if (lval[LEA] == EA_ADDR && lval[LNAME] == 0 && lval[LVALUE] == 0)
 			return 1;
 	}
@@ -807,39 +808,55 @@ loadlval(register int lval[], register int reg) {
 	// Sign extend to fix being called with negative constant when copiled with "-Dint=long"
 	reg |= -(reg & (1 << SBIT));
 
-	if (isConstant(lval)) {
-		// test for a predefined register
-		if (reg > 0)
-			gencode_I(TOK_LDA, reg, lval[LVALUE]);
-		else {
-			if (lval[LVALUE] == 0)
-				srcreg = REG_0;
-			else if (lval[LVALUE] == 1)
-				srcreg = REG_1;
-			else if (lval[LVALUE] == BPW)
-				srcreg = REG_BPW;
-			else {
-				srcreg = allocreg();
-				gencode_I(TOK_LDA, srcreg, lval[LVALUE]);
-			}
-
-			if (reg == -1)
-				reg = srcreg;
-			else if (srcreg < REG_0)
-				reg = srcreg;
-			else {
-				reg = allocreg();
-				gencode_R(TOK_LDR, reg, srcreg);
+	if (lval[LTYPE] == ADDRESS) {
+		// try to relocate offset to register
+		if (lval[LREG] == 0) {
+			if (lval[LVALUE] == 1) {
+				lval[LREG] = REG_1;
+				lval[LVALUE] = 0;
+			} else if (lval[LVALUE] == BPW) {
+				lval[LREG] = REG_BPW;
+				lval[LVALUE] = 0;
 			}
 		}
 
+		// assign resulting register
+		if (reg > 0) {
+			// loaded into fixed register
+			freelval(lval);
+		} else 	if (lval[LNAME] || lval[LVALUE]) {
+			// need code to evaluate, result always in new register
+			freelval(lval);
+			reg = allocreg();
+		} else if (reg == 0 && ((reglock | regresvd) & (1 << lval[LREG]))) {
+			// reserved/locked register to writable register
+			reg = allocreg();
+		} else if (lval[LNAME] == 0 && lval[LVALUE] == 0) {
+			// already in register
+			return;
+		} else {
+			// reuse register
+			reg = lval[LREG];
+		}
+
+		// generate code
+		if (lval[LNAME] || lval[LVALUE]) {
+			gencode_lval(TOK_LDA, reg, lval);
+		} else if (lval[LREG] == 0) {
+			gencode_R(TOK_LDR, reg, REG_0);
+		} else {
+			gencode_R(TOK_LDR, reg, lval[LREG]);
+		}
+
 		// Modify lval
-		lval[LTYPE] = EXPR;
-		lval[LPTR] = 0;
-		lval[LEA] = EA_ADDR;
+		lval[LTYPE] = ADDRESS;
+		lval[LPTR] = 0; // ??
+		lval[LSIZE] = 0; // ??
+		lval[LEA] = EA_ADDR; // remove
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = reg;
+//		lval[LTRUE] = lval[LFALSE] = 0;
 	} else if (lval[LTYPE] == BRANCH) {
 		int lblX;
 		lblX = ++nxtlabel;
@@ -857,7 +874,7 @@ loadlval(register int lval[], register int reg) {
 		gencode_R(TOK_LDR, reg, REG_0);
 		fprintf(outhdl, "_%d:", lblX);
 
-		lval[LTYPE] = EXPR;
+		lval[LTYPE] = ADDRESS;
 		lval[LPTR] = 0;
 		lval[LEA] = EA_ADDR;
 		lval[LNAME] = 0;
@@ -918,7 +935,7 @@ doasm(register int lval[]) {
 	needtoken(")");
 
 	// make R1 available
-	lval[LTYPE] = EXPR;
+	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
 	lval[LSIZE] = BPW;
 	lval[LEA] = EA_ADDR;
@@ -960,7 +977,7 @@ number(register int *val) {
  * Load a constant value
  */
 constant(register int lval[]) {
-	lval[LTYPE] = EXPR;
+	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
 	lval[LSIZE] = 0;
 	lval[LEA] = EA_ADDR;
@@ -1009,13 +1026,14 @@ constant(register int lval[]) {
 	toseg(prevseg);
 
 	// Convert to array of char
-	lval[LTYPE] = ARRAY;
-	lval[LPTR] = 1;
+	lval[LTYPE] = ADDRESS;
+	lval[LPTR] = 0;
 	lval[LSIZE] = 1;
 	lval[LEA] = EA_ADDR;
 	lval[LNAME] = -lbl;
 	lval[LVALUE] = 0;
 	lval[LREG] = 0;
+	lval[LTRUE] = lval[LFALSE] = 0;
 
 	return 1;
 }
@@ -1075,7 +1093,7 @@ primary(register int lval[]) {
 	// test for reserved words
 	if (sname == argcid) {
 		// generate (2(AP)-BPW)/BPW
-		lval[LTYPE] = EXPR;
+		lval[LTYPE] = ADDRESS;
 		lval[LPTR] = 0;
 		lval[LSIZE] = BPW;
 		lval[LEA] = EA_ADDR;
@@ -1195,7 +1213,7 @@ xplng1(register int (*hier)(), register int start, register int lval[]) {
 			freelval(rval);
 
 			// Modify lval
-			lval[LTYPE] = EXPR;
+			lval[LTYPE] = ADDRESS;
 			lval[LPTR] = 0;
 			lval[LEA] = EA_ADDR;
 		}
@@ -1352,7 +1370,7 @@ step(register int pre, register int lval[], register int post) {
 	int dest[LLAST];
 	register int reg;
 
-	if (lval[LTYPE] == EXPR || isConstant(lval) || lval[LTYPE] == BRANCH)
+	if (lval[LTYPE] == ADDRESS || isConstant(lval) || lval[LTYPE] == BRANCH)
 		error("non-modifiable variable");
 
 	// Copy lval
@@ -1481,7 +1499,7 @@ hier14(register int lval[]) {
 
 		csp = sav_csp;
 
-		lval[LTYPE] = EXPR;
+		lval[LTYPE] = ADDRESS;
 		lval[LPTR] = 0;
 		lval[LSIZE] = BPW;
 		lval[LEA] = EA_ADDR;
@@ -1573,11 +1591,12 @@ hier13(register int lval[]) {
 			exprerr();
 			return 0;
 		}
-		if (lval[LEA] != EA_IND || isConstant(lval)  || lval[LTYPE] == BRANCH)
+		if (lval[LTYPE] == ADDRESS || lval[LEA] != EA_IND || isConstant(lval)  || lval[LTYPE] == BRANCH)
 			error("Illegal address");
 		else {
-			lval[LTYPE] = EXPR;
-			lval[LSIZE] = isBPW(lval) ? BPW : 1;
+			lval[LTYPE] = ADDRESS;
+			if (lval[LPTR])
+				lval[LSIZE] = BPW; // lval is a pointer to something.
 			lval[LPTR] = 1;
 			lval[LEA] = EA_ADDR;
 		}
@@ -1708,7 +1727,7 @@ hier2(register int lval[]) {
 	fprintf(outhdl, "_%d:", lbl);
 
 	// resulting type is undefined, so modify LTYPE
-	lval[LTYPE] = EXPR;
+	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
 	lval[LEA] = EA_ADDR;
 
@@ -1741,8 +1760,8 @@ hier1(register int lval[]) {
 		return 1;
 
 	// test if lval modifiable
-	if (lval[LTYPE] == EXPR || isConstant(lval) || lval[LTYPE] == BRANCH)
-		error("Inproper lvalue");
+	if (lval[LTYPE] == ADDRESS || isConstant(lval) || lval[LTYPE] == BRANCH)
+		error("Improper lvalue");
 
 	// Get rval
 	if (!hier1(rval)) {
@@ -1782,7 +1801,7 @@ hier1(register int lval[]) {
 	}
 
 	// resulting type is undefined, so modify LTYPE
-	lval[LTYPE] = EXPR;
+	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
 	lval[LEA] = EA_ADDR;
 
@@ -2192,8 +2211,7 @@ dump_ident(int ident[]) {
 		typenames[2] = "VARIABLE";
 		typenames[3] = "ARRAY";
 		typenames[4] = "FUNCTION";
-		typenames[5] = "EXPR";
-		typenames[6] = "BRANCH";
+		typenames[5] = "BRANCH";
 	}
 
 	fprintf(outhdl, "; IDENT=");
@@ -2245,7 +2263,7 @@ declenum(int scope) {
 		sym = &syms[symidx++ * ILAST];
 		sym[ISYM] = sname;
 		sym[ICLASS] = CONSTANT;
-		sym[ITYPE] = EXPR;
+		sym[ITYPE] = ADDRESS;
 		sym[IPTR] = 0;
 		sym[ISIZE] = 0;
 		sym[INAME] = 0;

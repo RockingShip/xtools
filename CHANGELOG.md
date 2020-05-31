@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-05-31 12:36:57 Support for and convert to LTYPE=ADDRESS.
+                    Merging constant/register logic.
+                    Simplify `lval[]` by merging `LTYPE/LEA`.
+                    Dropped LTYPE=EXPR. 
 2020-05-31 00:13:52 Added `gencode_lval()` which handles dynamic AUTO_SP adjustments.
                     This leaves `gencode_M()` as direct code.
 2020-05-30 22:34:31 Drop back-end preprocessor.
