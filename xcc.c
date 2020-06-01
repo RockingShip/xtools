@@ -772,16 +772,16 @@ isRegister(register int lval[])
 }
 
 /*
- *
+ * Test if storage is BPW large. "int*" "char*" "int".
  */
 isBPW(register int lval[]) {
 	return lval[LPTR]  || lval[LSIZE] == BPW;
 }
 
 /*
- *
+ * Test if "int*".
  */
-isIPTR(register int lval[]) {
+isINTPTR(register int lval[]) {
 	return lval[LPTR]  && lval[LSIZE] == BPW;
 }
 
@@ -1383,21 +1383,21 @@ step(register int pre, register int lval[], register int post) {
 	dest[LREG] = lval[LREG];
 
 	if (isRegister(lval)) {
-		gencode_R((pre | post), lval[LREG], isIPTR(lval) ? REG_BPW : REG_1);
+		gencode_R((pre | post), lval[LREG], isINTPTR(lval) ? REG_BPW : REG_1);
 		if (post) {
 			reg = allocreg();
 			gencode_R(TOK_LDR, reg, lval[LREG]);
-			gencode_R((TOK_ADD + TOK_SUB - post), reg, isIPTR(lval) ? REG_BPW : REG_1);
+			gencode_R((TOK_ADD + TOK_SUB - post), reg, isINTPTR(lval) ? REG_BPW : REG_1);
 			freelval(lval);
 			lval[LREG] = reg;
 		}
 	} else {
 		reg = allocreg();
 		loadlval(lval, reg);
-		gencode_R((pre | post), lval[LREG], isIPTR(lval) ? REG_BPW : REG_1);
+		gencode_R((pre | post), lval[LREG], isINTPTR(lval) ? REG_BPW : REG_1);
 		gencode_lval(isBPW(dest) ? TOK_STW : TOK_STB, lval[LREG], dest);
 		if (post) {
-			gencode_R((TOK_ADD + TOK_SUB - post), reg, isIPTR(lval) ? REG_BPW : REG_1);
+			gencode_R((TOK_ADD + TOK_SUB - post), reg, isINTPTR(lval) ? REG_BPW : REG_1);
 			lval[LREG] = reg;
 		}
 	}
@@ -1699,14 +1699,16 @@ hier2(register int lval[]) {
 		freelval(lval);
 		lval[LTYPE] = BRANCH;
 		lval[LVALUE] = TOK_BEQ;
-		lval[LFALSE] = lval[LTRUE] = 0;
+		lval[LTRUE] = lval[LFALSE] = 0;
 	}
-	// alloc labels
-	if (!lval[LFALSE])
-		lval[LFALSE] = ++nxtlabel;
+	// alloc labels (copy to variable because of `loadlval()`
+	int lfalse;
+	lfalse = lval[LFALSE];
+	if (!lfalse)
+		lfalse = ++nxtlabel;
 
 	// process 'true' variant
-	gencode_L(lval[LVALUE], lval[LFALSE]);
+	gencode_L(lval[LVALUE], lfalse);
 	if (lval[LTRUE])
 		fprintf(outhdl, "_%d:", lval[LTRUE]);
 	expression(lval, 1);
@@ -1718,7 +1720,7 @@ hier2(register int lval[]) {
 	gencode_L(TOK_JMP, lbl);
 
 	// process 'false' variant
-	fprintf(outhdl, "_%d:", lval[LFALSE]);
+	fprintf(outhdl, "_%d:", lfalse);
 	if (!hier1(lval))
 		exprerr();
 	else
@@ -2609,7 +2611,7 @@ declfunc(int clas) {
 			int reg;
 			reg = allocreg();
 			reglock |= (1 << reg);
-			gencode_M(((sym[LSIZE] == BPW) || sym[LPTR]) ? TOK_LDW : TOK_LDB, reg, sym[INAME], sym[IVALUE], sym[IREG]);
+			gencode_M(((sym[ISIZE] == BPW) || sym[IPTR]) ? TOK_LDW : TOK_LDB, reg, sym[INAME], sym[IVALUE], sym[IREG]);
 			sym[INAME] = 0;
 			sym[IVALUE] = 0;
 			sym[IREG] = reg;
