@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-01 00:47:25 Replaced TYPE=ARRAY with LTYPE=ADDRESS.
+                    This allows arrays of pointers.
 2020-05-31 12:36:57 Support for and convert to LTYPE=ADDRESS.
                     Merging constant/register logic.
                     Simplify `lval[]` by merging `LTYPE/LEA`.

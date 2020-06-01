@@ -63,7 +63,6 @@ enum {
 enum {
 	ADDRESS = 1,
 	VARIABLE,
-	ARRAY,
 	FUNCTION,
 	BRANCH,
 };
@@ -760,14 +759,11 @@ isConstant(register int lval[])
  *
  * Test if lval is a register stored in `lval[LREG]`
  */
-isRegister(register int lval[])
-{
+isRegister(register int lval[]) {
 	if (lval[LTYPE] == ADDRESS && lval[LNAME] == 0 && lval[LVALUE] == 0)
 		return 1;
-	if (lval[LTYPE] == VARIABLE || lval[LTYPE] == ARRAY) {
-		if (lval[LEA] == EA_ADDR && lval[LNAME] == 0 && lval[LVALUE] == 0)
-			return 1;
-	}
+	if (lval[LTYPE] == VARIABLE && lval[LEA] == EA_ADDR && lval[LNAME] == 0 && lval[LVALUE] == 0)
+		return 1;
 	return 0;
 }
 
@@ -1073,16 +1069,17 @@ primary(register int lval[]) {
 			lval[LVALUE] = sym[IVALUE];
 			lval[LREG] = sym[IREG];
 
-			if (sym[ICLASS] == CONSTANT || sym[ICLASS] == REGISTER) {
+			if (sym[ICLASS] == CONSTANT || sym[ITYPE] == ADDRESS || sym[ICLASS] == REGISTER) {
 				lval[LEA] = EA_ADDR;
 			} else {
 				lval[LEA] = EA_IND;
 			}
 
 			// functions/arrays are addresses
-			if ((sym[ITYPE] == FUNCTION || sym[ITYPE] == ARRAY) && !sym[IPTR]) {
+			// todo: cleanup
+			if (sym[ITYPE] == FUNCTION && !sym[IPTR]) {
 				if (lval[LEA] != EA_IND)
-					fatal("ARRAY not EA_IND\n");
+					error("ARRAY not EA_IND\n");
 				lval[LEA] = EA_ADDR;
 			}
 
@@ -1413,20 +1410,20 @@ hier14(register int lval[]) {
 	if (!primary(lval))
 		return 0;
 	if (match("[")) { // [subscript]
-		if (!(lval[LTYPE] == ARRAY || (lval[LTYPE] == VARIABLE && lval[LPTR])))
+		if (!(lval[LTYPE] == ADDRESS || (lval[LTYPE] == VARIABLE && lval[LPTR])))
 			error("can't subscript");
 		else if (!expression(lval2, 0))
 			error("need subscript");
 		else {
 			if (isConstant(lval2)) {
 				if (lval[LEA] == EA_IND)
-					loadlval(lval, 0); // make LVALUE available
+					loadlval(lval, 0); // load if pointer
 				// Subscript is a constant
 				lval[LVALUE] += lval2[LVALUE] * lval[LSIZE];
 			} else {
 				// Subscript is a variable/complex-expression
 				if (lval[LEA] == EA_IND)
-					loadlval(lval, 0); // make LREG2 available
+					loadlval(lval, 0); // load if pointer
 				loadlval(lval2, 0);
 				if (lval[LSIZE] == BPW)
 					gencode_R(TOK_MUL, lval2[LREG], REG_BPW); // size index
@@ -1451,7 +1448,10 @@ hier14(register int lval[]) {
 				}
 			}
 			// Update data type
-			lval[LPTR] = 0;
+			if (lval[LTYPE] == ADDRESS)
+				lval[LTYPE] = VARIABLE; // address->memory with unchanged type. "int *arr[n]" -> "int* element"
+			else
+				lval[LPTR] = 0; // deference pointer changes type. "int*p" -> "int"
 			lval[LEA] = EA_IND;
 		}
 		needtoken("]");
@@ -2211,9 +2211,8 @@ dump_ident(int ident[]) {
 		typenames[0] = "0";
 		typenames[1] = "ADDRESS";
 		typenames[2] = "VARIABLE";
-		typenames[3] = "ARRAY";
-		typenames[4] = "FUNCTION";
-		typenames[5] = "BRANCH";
+		typenames[3] = "FUNCTION";
+		typenames[4] = "BRANCH";
 	}
 
 	fprintf(outhdl, "; IDENT=");
@@ -2352,7 +2351,7 @@ declvar(int scope, register int clas) {
 			if (clas == REGISTER)
 				error("register array not supported");
 
-			type = ARRAY;
+			type = ADDRESS;
 			ptr = 0;
 
 			// get number of elements
@@ -2481,7 +2480,7 @@ declarg(int scope, register int clas, register int argnr) {
 			if (type != VARIABLE)
 				error("array type not supported");
 
-			type = ARRAY;
+			type = VARIABLE;
 			ptr = 1; // address of array (passed as argument) is pushed on stack
 
 			// get number of elements
