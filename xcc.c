@@ -306,8 +306,11 @@ readline() {
 		} else {
 			sbuf[SBUFMAX - 1] = 0;
 			++inplnr;
-			if (maklis)
-				fprintf(outhdl, "; %d %s\n", inplnr, sbuf);
+			if (maklis) {
+				fprintf(outhdl, "; %d %s", inplnr, sbuf);
+				if (sbuf[strlen(sbuf)-1] != '\n')
+					fputc('\n', outhdl);
+			}
 		}
 	}
 }
@@ -747,8 +750,7 @@ freereg(register int reg) {
  *
  * Test if lval is a constant stored in `lval[LVALUE]`
  */
-isConstant(register int lval[])
-{
+isConstant(register int lval[]) {
 	return (lval[LTYPE] == ADDRESS && lval[LNAME] == 0 && lval[LREG] == 0);
 }
 
@@ -758,11 +760,7 @@ isConstant(register int lval[])
  * Test if lval is a register stored in `lval[LREG]`
  */
 isRegister(register int lval[]) {
-	if (lval[LTYPE] == ADDRESS && lval[LNAME] == 0 && lval[LVALUE] == 0)
-		return 1;
-	if (lval[LTYPE] == VARIABLE && lval[LEA] == EA_ADDR && lval[LNAME] == 0 && lval[LVALUE] == 0)
-		return 1;
-	return 0;
+	return (lval[LTYPE] == ADDRESS && lval[LNAME] == 0 && lval[LVALUE] == 0);
 }
 
 /*
@@ -882,6 +880,7 @@ loadlval(register int lval[], register int reg) {
 			reg = allocreg();
 		gencode_lval(isWORD(lval) ? TOK_LDW : TOK_LDB, reg, lval);
 
+		lval[LTYPE] = ADDRESS;
 		lval[LEA] = EA_ADDR;
 		// NOTE: lval[LPTR] can be non-zero
 		lval[LNAME] = 0;
@@ -893,6 +892,7 @@ loadlval(register int lval[], register int reg) {
 			reg = allocreg();
 		gencode_lval(TOK_LDA, reg, lval);
 
+		lval[LTYPE] = ADDRESS;
 		lval[LEA] = EA_ADDR;
 		lval[LPTR] = 0;
 		lval[LNAME] = 0;
@@ -1395,14 +1395,21 @@ expr_unary(register int lval[]) {
 			exprerr();
 			return 0;
 		}
-		if (!lval[LPTR] || isConstant(lval) || lval[LTYPE] == BRANCH)
-			error("Illegal address");
+
+		if (!lval[LPTR])
+			error("can't dereference");
 		else {
 			if (lval[LEA] == EA_IND)
-				loadlval(lval, 0);
-			lval[LPTR] = 0;
+				loadlval(lval, 0); // load if pointer
+
+			// Update data type
+			if (lval[LTYPE] == ADDRESS)
+				lval[LTYPE] = VARIABLE; // address->memory with unchanged type. "int *arr[n]" -> "int* element"
+			lval[LPTR]--; // deference pointer
 			lval[LEA] = EA_IND;
 		}
+
+		return 1;
 	} else if (match("&")) {
 		if (!expr_unary(lval)) {
 			exprerr();
@@ -1412,9 +1419,7 @@ expr_unary(register int lval[]) {
 			error("Illegal address");
 		else {
 			lval[LTYPE] = ADDRESS;
-			if (lval[LPTR])
-				lval[LSIZE] = BPW; // lval is a pointer to something.
-			lval[LPTR] = 1;
+			lval[LPTR]++;
 			lval[LEA] = EA_ADDR;
 		}
 	} else {
@@ -1893,10 +1898,9 @@ expr_assign(register int lval[]) {
 	if (oper == -1) {
 		if (isRegister(lval))
 			gencode_R(TOK_LDR, lval[LREG], rval[LREG]);
-		else {
+		else
 			gencode_lval(isWORD(lval) ? TOK_STW : TOK_STB, rval[LREG], lval);
-			freelval(lval);
-		}
+		freelval(lval);
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = rval[LREG];
@@ -2487,6 +2491,7 @@ declvar(int scope, register int clas) {
 
 		// Now generate code
 		if (sym[ICLASS] == REGISTER) {
+			sym[ITYPE] = ADDRESS;
 			sym[INAME] = 0;
 			sym[IVALUE] = 0;
 			sym[IREG] = allocreg();
@@ -2719,6 +2724,7 @@ declfunc(int clas) {
 			reg = allocreg();
 			reglock |= (1 << reg);
 			gencode_M(((sym[ISIZE] == BPW) || sym[IPTR]) ? TOK_LDW : TOK_LDB, reg, sym[INAME], sym[IVALUE], sym[IREG]);
+			sym[ITYPE] = ADDRESS;
 			sym[INAME] = 0;
 			sym[IVALUE] = 0;
 			sym[IREG] = reg;

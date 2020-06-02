@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-02 15:09:34 Consistent use of LTYPE=ADDRESS and register variables.
+                    ADDRESS/EA_ADDR VARIABLE/EA_IND should be consistent.
 2020-06-02 13:59:21 Better implementation of ARRAY.
                     Address of arrays have an extra pointer indirection.
 2020-06-02 12:48:40 Drop support for pointers to function.
