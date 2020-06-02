@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-02 12:48:40 Drop support for pointers to function.
+                    Previous commit contains functionality.
+                    Reinstating might not work now because `LPTR` gets a different meaning.
 2020-06-02 12:32:40 Drop use of pointers to function.
                     This is a strong flowcontrol feature and hardly used.
                     The "(*f)()" notation clashes with "..., int *f)".

@@ -1075,14 +1075,6 @@ primary(register int lval[]) {
 				lval[LEA] = EA_IND;
 			}
 
-			// functions/arrays are addresses
-			// todo: cleanup
-			if (sym[ITYPE] == FUNCTION && !sym[IPTR]) {
-				if (lval[LEA] != EA_IND)
-					error("ARRAY not EA_IND\n");
-				lval[LEA] = EA_ADDR;
-			}
-
 			return 1;
 		}
 	}
@@ -1276,7 +1268,7 @@ expr_postfix(register int lval[]) {
 		needtoken("]");
 	}
 	if (match("(")) { // function (...)
-		if (lval[LPTR] || (lval[LTYPE] != FUNCTION))
+		if (lval[LTYPE] != FUNCTION)
 			error("Illegal function");
 
 		argc = BPW;
@@ -2438,10 +2430,7 @@ declvar(int scope, register int clas) {
 
 		if (match("*"))
 			ptr = 1;
-		else if (match("(")) {
-			ptr = 2;
-			needtoken("*");
-		} else
+		else
 			ptr = 0;
 		blanks();
 
@@ -2458,16 +2447,6 @@ declvar(int scope, register int clas) {
 		}
 
 		type = VARIABLE;
-
-		if (ptr == 2) {
-			match(")");
-			if (match("(")) {
-				if (match(")"))
-					type = FUNCTION;
-				else
-					error("bad (*)()");
-			}
-		}
 
 		cnt = 1; // Number of elements
 		if (match("[")) {
@@ -2568,10 +2547,7 @@ declarg(int scope, register int clas, register int argnr) {
 
 		if (match("*"))
 			ptr = 1;
-		else if (match("(")) {
-			ptr = 2;
-			needtoken("*");
-		} else
+		else
 			ptr = 0;
 		blanks();
 
@@ -2589,16 +2565,6 @@ declarg(int scope, register int clas, register int argnr) {
 		}
 
 		type = VARIABLE;
-
-		if (ptr == 2) {
-			match(")");
-			if (match("(")) {
-				if (match(")"))
-					type = FUNCTION;
-				else
-					error("bad (*)()");
-			}
-		}
 
 		cnt = 1; // Number of elements
 		if (match("[")) {
