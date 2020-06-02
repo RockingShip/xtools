@@ -1178,7 +1178,7 @@ step(register int pre, register int lval[], register int post) {
 	int dest[LLAST];
 	register int reg;
 
-	if (lval[LTYPE] == ADDRESS || isConstant(lval) || lval[LTYPE] == BRANCH)
+	if (!isRegister(lval) && lval[LTYPE] != VARIABLE)
 		error("non-modifiable variable");
 
 	// Copy lval
@@ -1221,7 +1221,7 @@ expr_postfix(register int lval[]) {
 	if (!primary(lval))
 		return 0;
 	if (match("[")) { // [subscript]
-		if (!(lval[LTYPE] == ADDRESS || (lval[LTYPE] == VARIABLE && lval[LPTR])))
+		if (!lval[LPTR])
 			error("can't subscript");
 		else if (!expression(lval2, 0))
 			error("need subscript");
@@ -1261,8 +1261,7 @@ expr_postfix(register int lval[]) {
 			// Update data type
 			if (lval[LTYPE] == ADDRESS)
 				lval[LTYPE] = VARIABLE; // address->memory with unchanged type. "int *arr[n]" -> "int* element"
-			else
-				lval[LPTR] = 0; // deference pointer changes type. "int*p" -> "int"
+			lval[LPTR]--; // deference pointer
 			lval[LEA] = EA_IND;
 		}
 		needtoken("]");
@@ -1881,8 +1880,8 @@ expr_assign(register int lval[]) {
 		return 1;
 
 	// test if lval modifiable
-	if (lval[LTYPE] == ADDRESS || isConstant(lval) || lval[LTYPE] == BRANCH)
-		error("Improper lvalue");
+	if (!isRegister(lval) && lval[LTYPE] != VARIABLE)
+		error("non-modifiable variable");
 
 	// Get rval
 	if (!expr_assign(rval)) {
@@ -2454,15 +2453,14 @@ declvar(int scope, register int clas) {
 
 		cnt = 1; // Number of elements
 		if (match("[")) {
-			if (ptr)
-				error("array of pointers not supported");
 			if (type != VARIABLE)
 				error("array type not supported");
 			if (clas == REGISTER)
 				error("register array not supported");
 
 			type = ADDRESS;
-			ptr = 0;
+			// add extra indirection to endtype
+			ptr++;
 
 			// get number of elements
 			if (!constexpr(&cnt))
@@ -2494,12 +2492,19 @@ declvar(int scope, register int clas) {
 			sym[IREG] = allocreg();
 			reglock |= (1 << sym[IREG]);
 		} else if (sym[ICLASS] == SP_AUTO) {
-			if (ptr)
-				csp -= BPW;
-			else if (size == 1)
-				csp -= cnt;
-			else
-				csp -= cnt * BPW;
+
+			if (type == ADDRESS) {
+				if (ptr <= 1 && size == 1)
+					csp -= cnt * 1;
+				else
+					csp -= cnt * BPW;
+			} else {
+				if (!ptr && size == 1)
+					csp -= cnt * 1;
+				else
+					csp -= cnt * BPW;
+			}
+
 			sym[INAME] = 0;
 			sym[IVALUE] = csp;
 			sym[IREG] = REG_SP;
@@ -2511,12 +2516,18 @@ declvar(int scope, register int clas) {
 
 			if (clas != STATIC)
 				fprintf(outhdl, ":");
-			if (ptr)
-				fprintf(outhdl, "\t.DSW\t1\n");
-			else if (size == 1)
-				fprintf(outhdl, "\t.DSB\t%d\n", cnt);
-			else
-				fprintf(outhdl, "\t.DSW\t%d\n", cnt);
+
+			if (type == ADDRESS) {
+				if (ptr <= 1 && size == 1)
+					fprintf(outhdl, "\t.DSB\t%d\n", cnt);
+				else
+					fprintf(outhdl, "\t.DSW\t%d\n", cnt);
+			} else {
+				if (!ptr && size == 1)
+					fprintf(outhdl, "\t.DSB\t1\n");
+				else
+					fprintf(outhdl, "\t.DSW\t1\n");
+			}
 		}
 		dump_ident(sym);
 
@@ -2534,7 +2545,7 @@ declvar(int scope, register int clas) {
  * Declare/define a procedure argument
  */
 declarg(int scope, register int clas, register int argnr) {
-	int size, sname, len, ptr, type, cnt, reg;
+	int size, sname, len, ptr, type, reg;
 	register int *sym, i;
 
 	// get size of type

@@ -8,7 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-02 13:59:21 Better implementation of ARRAY.
+                    Address of arrays have an extra pointer indirection.
 2020-06-02 12:48:40 Drop support for pointers to function.
+                    Feature mixes code&data which is alien to `untangle`.
                     Previous commit contains functionality.
                     Reinstating might not work now because `LPTR` gets a different meaning.
 2020-06-02 12:32:40 Drop use of pointers to function.
