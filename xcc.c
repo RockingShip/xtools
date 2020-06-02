@@ -768,7 +768,7 @@ isRegister(register int lval[]) {
 /*
  * Test if storage is BPW large. "int*" "char*" "int".
  */
-isBPW(register int lval[]) {
+isWORD(register int lval[]) {
 	return lval[LPTR]  || lval[LSIZE] == BPW;
 }
 
@@ -880,7 +880,7 @@ loadlval(register int lval[], register int reg) {
 		freelval(lval);
 		if (reg <= 0)
 			reg = allocreg();
-		gencode_lval(isBPW(lval) ? TOK_LDW : TOK_LDB, reg, lval);
+		gencode_lval(isWORD(lval) ? TOK_LDW : TOK_LDB, reg, lval);
 
 		lval[LEA] = EA_ADDR;
 		// NOTE: lval[LPTR] can be non-zero
@@ -1203,7 +1203,7 @@ step(register int pre, register int lval[], register int post) {
 		reg = allocreg();
 		loadlval(lval, reg);
 		gencode_R((pre | post), lval[LREG], isINTPTR(lval) ? REG_BPW : REG_1);
-		gencode_lval(isBPW(dest) ? TOK_STW : TOK_STB, lval[LREG], dest);
+		gencode_lval(isWORD(dest) ? TOK_STW : TOK_STB, lval[LREG], dest);
 		if (post) {
 			gencode_R((TOK_ADD + TOK_SUB - post), reg, isINTPTR(lval) ? REG_BPW : REG_1);
 			lval[LREG] = reg;
@@ -1287,7 +1287,7 @@ expr_postfix(register int lval[]) {
 				if (lval2[LEA] != EA_IND)
 					gencode_lval(TOK_PSHA, -1, lval2);
 				else
-					gencode_lval(isBPW(lval2) ? TOK_PSHW : TOK_PSHB, -1, lval2);
+					gencode_lval(isWORD(lval2) ? TOK_PSHW : TOK_PSHB, -1, lval2);
 			}
 			// increment ARGC
 			csp -= BPW;
@@ -1895,7 +1895,7 @@ expr_assign(register int lval[]) {
 		if (isRegister(lval))
 			gencode_R(TOK_LDR, lval[LREG], rval[LREG]);
 		else {
-			gencode_lval(isBPW(lval) ? TOK_STW : TOK_STB, rval[LREG], lval);
+			gencode_lval(isWORD(lval) ? TOK_STW : TOK_STB, rval[LREG], lval);
 			freelval(lval);
 		}
 		lval[LNAME] = 0;
@@ -1918,7 +1918,7 @@ expr_assign(register int lval[]) {
 		if (isRegister(dest))
 			gencode_R(TOK_LDR, dest[LREG], lval[LREG]);
 		else
-			gencode_lval(isBPW(lval) ? TOK_STW : TOK_STB, lval[LREG], dest);
+			gencode_lval(isWORD(lval) ? TOK_STW : TOK_STB, lval[LREG], dest);
 	}
 
 	// resulting type is undefined, so modify LTYPE
@@ -2301,8 +2301,12 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 	} else if (!ch) {
 		return; // EOF
 	} else if (ch != ';') {
+		int r;
+		r = reguse;
 		expression(lval, 1);
 		freelval(lval);
+		if (r != reguse)
+			fatal("register leak");
 		semicolon();
 	} else
 		semicolon();
@@ -2566,7 +2570,6 @@ declarg(int scope, register int clas, register int argnr) {
 
 		type = VARIABLE;
 
-		cnt = 1; // Number of elements
 		if (match("[")) {
 			if (ptr)
 				error("array of pointers not supported");
@@ -2577,6 +2580,7 @@ declarg(int scope, register int clas, register int argnr) {
 			ptr = 1; // address of array (passed as argument) is pushed on stack
 
 			// get number of elements
+			int cnt;
 			if (constexpr(&cnt))
 				error("arraysize not allowed");
 
