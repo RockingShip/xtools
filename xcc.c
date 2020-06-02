@@ -211,8 +211,6 @@ int	csp;			// stackpointer seen from scope coding
 int	currseg;		// Current output segment
 int	debug;			// Add debug info to output
 int	errflag;		// True if an error has occurred
-int	hier_oper[30];		// Internal translation of the above
-int	hier_str[30];		// Array containing hierarchical operators
 int	inphdl;			// handle for .C file
 int	inplnr;			// Linenumber of .C file
 int	lishdl;			// handle for .LIS file
@@ -804,7 +802,9 @@ loadlval(register int lval[], register int reg) {
 	// Sign extend to fix being called with negative constant when copiled with "-Dint=long"
 	reg |= -(reg & (1 << SBIT));
 
-	if (lval[LTYPE] == ADDRESS) {
+	if (lval[LTYPE] == FUNCTION) {
+		error("Invalid function use");
+	} else if (lval[LTYPE] == ADDRESS) {
 		// try to relocate offset to register
 		if (lval[LREG] == 0) {
 			if (lval[LVALUE] == 1) {
@@ -1163,200 +1163,19 @@ calc(register int left, int oper, int right) {
 }
 
 /*
- * generic processing for <lval> { <operation> <rval> }
+ * Shared code generation used within expressions
  */
-xplng1(register int (*hier)(), register int start, register int lval[]) {
-	register char *cptr, entry;
-	int rval[LLAST];
-
-	// Load lval
-	if (!(*hier)(lval))
-		return 0;
-
-	while (1) {
-		// Locate operation
-		entry = start;
-		while (1) {
-			if (!(cptr = hier_str[entry]))
-				return 1;
-			if (omatch(cptr))
-				break;
-			++entry;
-		}
-
-		// Put lval into a register
-		if (!lval[LPTR] && (lval[LTYPE] == FUNCTION))
-			error("Invalid function use");
-
-		// Load rval
-		if (!(*hier)(rval)) {
-			exprerr();
-			return 1;
-		}
-
-		// Put rval into a register
-		if (!rval[LPTR] && (rval[LTYPE] == FUNCTION))
-			error("Invalid function use");
-
-		// Generate code
-		if (isConstant(lval) && isConstant(rval)) {
-			lval[LVALUE] = calc(lval[LVALUE], hier_oper[entry], rval[LVALUE]);
-		} else {
-			loadlval(lval, 0);
-			loadlval(rval, -1);
-
-			// Execute operation and release rval
-			gencode_R(hier_oper[entry], lval[LREG], rval[LREG]);
-			freelval(rval);
-
-			// Modify lval
-			lval[LTYPE] = ADDRESS;
-			lval[LPTR] = 0;
-			lval[LEA] = EA_ADDR;
-		}
-	}
-}
-
-/*
- * generic processing for <lval> <comparison> <rval>
- */
-xplng2(register int (*hier)(), register int start, register int lval[]) {
-	register char *cptr, entry;
-	int rval[LLAST];
-
-	// Load lval
-	if (!(*hier)(lval))
-		return 0;
-
-	// Locate operation
-	entry = start;
-	while (1) {
-		if (!(cptr = hier_str[entry]))
-			return 1;
-		if (omatch(cptr))
-			break;
-		++entry;
-	}
-
-	// Load rval
-	if (!(*hier)(rval)) {
-		exprerr();
-		return 1;
-	}
-
+gencode_expr(int tok, register int lval[], register int rval[]) {
 	// Generate code
 	if (isConstant(lval) && isConstant(rval)) {
-		lval[LVALUE] = calc(lval[LVALUE], hier_oper[entry], rval[LVALUE]);
+		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
 	} else {
-		loadlval(lval, -1);
+		loadlval(lval, 0);
 		loadlval(rval, -1);
 
-		// Compare and release values
-		gencode_R(TOK_CMP, lval[LREG], rval[LREG]);
-		freelval(lval);
+		// Execute operation and release rval
+		gencode_R(tok, lval[LREG], rval[LREG]);
 		freelval(rval);
-
-		// Change lval to "BRANCH"
-		lval[LTYPE] = BRANCH;
-		lval[LVALUE] = negop(hier_oper[entry]);
-		lval[LFALSE] = lval[LTRUE] = 0;
-	}
-	return 1;
-}
-
-/*
- * generic processing for <lval> { ('||' | '&&') <rval> }
- */
-xplng3(register int (*hier)(), register int start, register int lval[]) {
-	register char *cptr, entry;
-	register int lbl;
-	int once;
-
-	// Load lval
-	if (!(*hier)(lval))
-		return 0;
-
-	once = 1;
-	entry = start;
-	while (1) {
-		// Locate operation
-		while (1) {
-			if (!(cptr = hier_str[entry]))
-				return 1;
-			if (omatch(cptr))
-				break;
-			++entry;
-		}
-
-		// Put lval into a register
-		if (!lval[LPTR] && (lval[LTYPE] == FUNCTION))
-			error("Invalid function use");
-
-		if (once) {
-			// One time only: process lval and jump
-
-			// lval must be BRANCH
-			if (lval[LTYPE] != BRANCH) {
-				loadlval(lval, 0);
-				freelval(lval);
-				lval[LTYPE] = BRANCH;
-				lval[LVALUE] = TOK_BEQ;
-				lval[LFALSE] = lval[LTRUE] = 0;
-			}
-
-			if (hier_oper[entry] == TOK_AND) {
-				if (!lval[LFALSE])
-					lval[LFALSE] = ++nxtlabel;
-				lbl = lval[LFALSE];
-			} else {
-				if (!lval[LTRUE])
-					lval[LTRUE] = ++nxtlabel;
-				lbl = lval[LTRUE];
-			}
-
-			// Mark done
-			once = 0;
-		}
-
-		// postprocess last lval
-		if (hier_oper[entry] == TOK_AND) {
-			gencode_L(lval[LVALUE], lval[LFALSE]);
-			if (lval[LTRUE])
-				fprintf(outhdl, "_%d:", lval[LTRUE]);
-		} else {
-			gencode_L(negop(lval[LVALUE]), lval[LTRUE]);
-			if (lval[LFALSE])
-				fprintf(outhdl, "_%d:", lval[LFALSE]);
-		}
-
-		// Load next lval
-		if (!(*hier)(lval)) {
-			exprerr();
-			return 1;
-		}
-
-		// Put lval into a register
-		if (!lval[LPTR] && (lval[LTYPE] == FUNCTION))
-			error("Invalid function use");
-
-		// lval must be BRANCH
-		if (lval[LTYPE] != BRANCH) {
-			loadlval(lval, 0);
-			freelval(lval);
-			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_BEQ;
-			lval[LFALSE] = lval[LTRUE] = 0;
-		}
-
-		if (hier_oper[entry] == TOK_AND) {
-			if (lval[LFALSE])
-				fprintf(outhdl, "_%d=_%d\n", lval[LFALSE], lbl);
-			lval[LFALSE] = lbl;
-		} else {
-			if (lval[LTRUE])
-				fprintf(outhdl, "_%d=_%d\n", lval[LTRUE], lbl);
-			lval[LTRUE] = lbl;
-		}
 	}
 }
 
@@ -1403,7 +1222,7 @@ step(register int pre, register int lval[], register int post) {
 /*
  *
  */
-hier14(register int lval[]) {
+expr_postfix(register int lval[]) {
 	int lval2[LLAST], sav_csp;
 	register int argc, reg;
 
@@ -1507,28 +1326,35 @@ hier14(register int lval[]) {
 		lval[LVALUE] = 0;
 		lval[LREG] = REG_RETURN;
 	}
+
+	if (match("++")) {
+		step(0, lval, TOK_ADD);
+	} else if (match("--")) {
+		step(0, lval, TOK_SUB);
+	}
+
 	return 1;
 }
 
 /*
  *
  */
-hier13(register int lval[]) {
+expr_unary(register int lval[]) {
 
 	if (match("++")) {
-		if (!hier13(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
 		step(TOK_ADD, lval, 0);
 	} else if (match("--")) {
-		if (!hier13(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
 		step(TOK_SUB, lval, 0);
 	} else if (match("~")) {
-		if (!hier13(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
@@ -1539,7 +1365,7 @@ hier13(register int lval[]) {
 			gencode_R(TOK_NOT, -1, lval[LREG]);
 		}
 	} else if (match("!")) {
-		if (!hier13(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
@@ -1555,10 +1381,10 @@ hier13(register int lval[]) {
 			freelval(lval);
 			lval[LTYPE] = BRANCH;
 			lval[LVALUE] = TOK_BNE;
-			lval[LFALSE] = lval[LTRUE] = 0;
+			lval[LTRUE] = lval[LFALSE] = 0;
 		}
 	} else if (match("-")) {
-		if (!hier13(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
@@ -1569,12 +1395,12 @@ hier13(register int lval[]) {
 			gencode_R(TOK_NEG, -1, lval[LREG]);
 		}
 	} else if (match("+")) {
-		if (!hier13(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
 	} else if (match("*")) {
-		if (!hier13(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
@@ -1587,7 +1413,7 @@ hier13(register int lval[]) {
 			lval[LEA] = EA_IND;
 		}
 	} else if (match("&")) {
-		if (!hier13(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
@@ -1601,13 +1427,8 @@ hier13(register int lval[]) {
 			lval[LEA] = EA_ADDR;
 		}
 	} else {
-		if (!hier14(lval))
+		if (!expr_postfix(lval))
 			return 0;
-		if (match("++")) {
-			step(0, lval, TOK_ADD);
-		} else if (match("--")) {
-			step(0, lval, TOK_SUB);
-		}
 	}
 	return 1;
 }
@@ -1615,80 +1436,386 @@ hier13(register int lval[]) {
 /*
  *
  */
-hier12(int lval[]) {
-	return xplng1(hier13, 24, lval);
+expr_muldiv(int lval[]) {
+	// Load lval
+	if (!expr_unary(lval))
+		return 0;
+
+	while (1) {
+		int tok, rval[LLAST];
+
+		if (omatch("*"))
+			tok = TOK_MUL;
+		else if (omatch("/"))
+			tok = TOK_DIV;
+		else if (omatch("%"))
+			tok = TOK_MOD;
+		else
+			return 1;
+
+		// Load rval
+		if (!expr_unary(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(tok, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier11(int lval[]) {
-	return xplng1(hier12, 21, lval);
+expr_addsub(int lval[]) {
+	// Load lval
+	if (!expr_muldiv(lval))
+		return 0;
+
+	while (1) {
+		int tok, rval[LLAST];
+
+		if (omatch("+"))
+			tok = TOK_ADD;
+		else if (omatch("-"))
+			tok = TOK_SUB;
+		else
+			return 1;
+
+		// Load rval
+		if (!expr_muldiv(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(tok, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier10(int lval[]) {
-	return xplng1(hier11, 18, lval);
+expr_shift(int lval[]) {
+	// Load lval
+	if (!expr_addsub(lval))
+		return 0;
+
+	while (1) {
+		int tok, rval[LLAST];
+
+		if (omatch(">>"))
+			tok = TOK_LSR;
+		else if (omatch("<<"))
+			tok = TOK_LSL;
+		else
+			return 1;
+
+		// Load rval
+		if (!expr_addsub(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(tok, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier9(int lval[]) {
-	return xplng2(hier10, 13, lval);
+expr_relational(int lval[]) {
+	int tok, rval[LLAST];
+
+	// Load lval
+	if (!expr_shift(lval))
+		return 0;
+
+	if (omatch("<="))
+		tok = TOK_BLE;
+	else if (omatch(">="))
+		tok = TOK_BGE;
+	else if (omatch("<"))
+		tok = TOK_BLT;
+	else if (omatch(">"))
+		tok = TOK_BGT;
+	else
+		return 1;
+
+	// Load rval
+	if (!expr_shift(rval)) {
+		exprerr();
+		return 1;
+	}
+
+	// Generate code
+	if (isConstant(lval) && isConstant(rval)) {
+		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
+	} else {
+		loadlval(lval, -1);
+		loadlval(rval, -1);
+
+		// Compare and release values
+		gencode_R(TOK_CMP, lval[LREG], rval[LREG]);
+		freelval(lval);
+		freelval(rval);
+
+		// Change lval to "BRANCH"
+		lval[LTYPE] = BRANCH;
+		lval[LVALUE] = negop(tok);
+		lval[LTRUE] = lval[LFALSE] = 0;
+	}
+	return 1;
 }
 
 /*
  *
  */
-hier8(int lval[]) {
-	return xplng2(hier9, 10, lval);
+expr_equality(int lval[]) {
+	int tok, rval[LLAST];
+
+	// Load lval
+	if (!expr_relational(lval))
+		return 0;
+
+	if (omatch("=="))
+		tok = TOK_BEQ;
+	else if (omatch("!="))
+		tok = TOK_BNE;
+	else
+		return 1;
+
+	// Load rval
+	if (!expr_relational(rval)) {
+		exprerr();
+		return 1;
+	}
+
+	// Generate code
+	if (isConstant(lval) && isConstant(rval)) {
+		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
+	} else {
+		loadlval(lval, -1);
+		loadlval(rval, -1);
+
+		// Compare and release values
+		gencode_R(TOK_CMP, lval[LREG], rval[LREG]);
+		freelval(lval);
+		freelval(rval);
+
+		// Change lval to "BRANCH"
+		lval[LTYPE] = BRANCH;
+		lval[LVALUE] = negop(tok);
+		lval[LTRUE] = lval[LFALSE] = 0;
+	}
+	return 1;
 }
 
 /*
  *
  */
-hier7(int lval[]) {
-	return xplng1(hier8, 8, lval);
+expr_and(int lval[]) {
+	// Load lval
+	if (!expr_equality(lval))
+		return 0;
+
+	while (1) {
+		int rval[LLAST];
+
+		if (!omatch("&"))
+			return 1;
+
+		// Load rval
+		if (!expr_equality(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		// Generate code
+		gencode_expr(TOK_AND, lval, rval);
+	}
+
 }
 
 /*
  *
  */
-hier6(int lval[]) {
-	return xplng1(hier7, 6, lval);
+expr_xor(int *lval) {
+	// Load lval
+	if (!expr_and(lval))
+		return 0;
+
+	while (1) {
+		int rval[LLAST];
+
+		if (!omatch("^"))
+			return 1;
+
+		// Load rval
+		if (!expr_and(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(TOK_XOR, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier5(int lval[]) {
-	return xplng1(hier6, 4, lval);
+expr_or(int *lval) {
+	// Load lval
+	if (!expr_xor(lval))
+		return 0;
+
+	while (1) {
+		int rval[LLAST];
+
+		if (!omatch("|"))
+			return 1;
+
+		// Load rval
+		if (!expr_xor(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(TOK_OR, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier4(int lval[]) {
-	return xplng3(hier5, 2, lval);
+expr_land(int lval[]) {
+	register int lbl;
+	int once;
+
+	// Load lval
+	if (!expr_or(lval))
+		return 0;
+
+	once = 1;
+	while (1) {
+		// Locate operation
+		if (!omatch("&&"))
+			return 1;
+
+		if (once) {
+			// One time only: process lval and jump
+
+			// lval must be BRANCH
+			if (lval[LTYPE] != BRANCH) {
+				loadlval(lval, 0);
+				freelval(lval);
+				lval[LTYPE] = BRANCH;
+				lval[LVALUE] = TOK_BEQ;
+				lval[LTRUE] = lval[LFALSE] = 0;
+			}
+
+			if (!lval[LFALSE])
+				lval[LFALSE] = ++nxtlabel;
+			lbl = lval[LFALSE];
+
+			// Mark done
+			once = 0;
+		}
+
+		// postprocess last lval
+		gencode_L(lval[LVALUE], lval[LFALSE]);
+		if (lval[LTRUE])
+			fprintf(outhdl, "_%d:", lval[LTRUE]);
+
+		// Load next lval
+		if (!expr_or(lval)) {
+			exprerr();
+			return 1;
+		}
+
+		// lval must be BRANCH
+		if (lval[LTYPE] != BRANCH) {
+			loadlval(lval, 0);
+			freelval(lval);
+			lval[LTYPE] = BRANCH;
+			lval[LVALUE] = TOK_BEQ;
+			lval[LTRUE] = lval[LFALSE] = 0;
+		}
+
+		if (lval[LFALSE])
+			fprintf(outhdl, "_%d=_%d\n", lval[LFALSE], lbl);
+		lval[LFALSE] = lbl;
+	}
 }
 
 /*
  *
  */
-hier3(int lval[]) {
-	return xplng3(hier4, 0, lval);
+expr_lor(int lval[]) {
+	register int lbl;
+	int once;
+
+	// Load lval
+	if (!expr_land(lval))
+		return 0;
+
+	once = 1;
+	while (1) {
+		// Locate operation
+		if (!omatch("||"))
+			return 1;
+
+		if (once) {
+			// One time only: process lval and jump
+
+			// lval must be BRANCH
+			if (lval[LTYPE] != BRANCH) {
+				loadlval(lval, 0);
+				freelval(lval);
+				lval[LTYPE] = BRANCH;
+				lval[LVALUE] = TOK_BEQ;
+				lval[LTRUE] = lval[LFALSE] = 0;
+			}
+
+			if (!lval[LTRUE])
+				lval[LTRUE] = ++nxtlabel;
+			lbl = lval[LTRUE];
+
+			// Mark done
+			once = 0;
+		}
+
+		// postprocess last lval
+		gencode_L(negop(lval[LVALUE]), lval[LTRUE]);
+		if (lval[LFALSE])
+			fprintf(outhdl, "_%d:", lval[LFALSE]);
+
+		// Load next lval
+		if (!expr_land(lval)) {
+			exprerr();
+			return 1;
+		}
+
+		// lval must be BRANCH
+		if (lval[LTYPE] != BRANCH) {
+			loadlval(lval, 0);
+			freelval(lval);
+			lval[LTYPE] = BRANCH;
+			lval[LVALUE] = TOK_BEQ;
+			lval[LTRUE] = lval[LFALSE] = 0;
+		}
+
+		if (lval[LTRUE])
+			fprintf(outhdl, "_%d=_%d\n", lval[LTRUE], lbl);
+		lval[LTRUE] = lbl;
+	}
 }
 
 /*
  *
  */
-hier2(register int lval[]) {
+expr_ternary(register int lval[]) {
 	register int lbl, reg;
 
-	if (!hier3(lval))
+	if (!expr_lor(lval))
 		return 0;
 	if (!match("?"))
 		return 1;
@@ -1721,7 +1848,7 @@ hier2(register int lval[]) {
 
 	// process 'false' variant
 	fprintf(outhdl, "_%d:", lfalse);
-	if (!hier1(lval))
+	if (!expr_assign(lval))
 		exprerr();
 	else
 		loadlval(lval, reg); // Needed for result to occupy same reg
@@ -1739,11 +1866,11 @@ hier2(register int lval[]) {
 /*
  * Load a numerical expression separated by comma's
  */
-hier1(register int lval[]) {
+expr_assign(register int lval[]) {
 	int rval[LLAST], dest[LLAST];
 	register int oper;
 
-	if (!hier2(lval))
+	if (!expr_ternary(lval))
 		return 0;
 
 	// Test for assignment
@@ -1766,7 +1893,7 @@ hier1(register int lval[]) {
 		error("Improper lvalue");
 
 	// Get rval
-	if (!hier1(rval)) {
+	if (!expr_assign(rval)) {
 		exprerr();
 		return 1;
 	}
@@ -1815,14 +1942,14 @@ hier1(register int lval[]) {
  */
 expression(register int lval[], int comma) {
 
-	if (!hier1(lval)) {
+	if (!expr_assign(lval)) {
 		expected("expression");
 		return 0;
 	}
 
 	while (comma && match(",")) {
 		freelval(lval);
-		if (!hier1(lval)) {
+		if (!expr_assign(lval)) {
 			expected("expression");
 			return 0;
 		}
@@ -1837,7 +1964,7 @@ expression(register int lval[], int comma) {
 constexpr(register int *val) {
 	int lval[LLAST];
 
-	if (!hier1(lval))
+	if (!expr_assign(lval))
 		return 0;
 	if (isConstant(lval)) {
 		*val = lval[LVALUE];
@@ -2717,36 +2844,6 @@ initialize() {
 
 	// reserve first entry so it terminates lists
 	namech[0] = '?';
-
-	// setup array containing hieriachal operators
-	hier_str[ 0] = "||"; hier_oper[ 0] = TOK_OR;    // hier3
-	hier_str[ 1] = 0;
-	hier_str[ 2] = "&&"; hier_oper[ 2] = TOK_AND;   // hier4
-	hier_str[ 3] = 0;
-	hier_str[ 4] = "|";  hier_oper[ 4] = TOK_OR;    // hier5
-	hier_str[ 5] = 0;
-	hier_str[ 6] = "^";  hier_oper[ 6] = TOK_XOR;    // hier6
-	hier_str[ 7] = 0;
-	hier_str[ 8] = "&";  hier_oper[ 8] = TOK_AND;   // hier7
-	hier_str[ 9] = 0;
-	hier_str[10] = "=="; hier_oper[10] = TOK_BEQ;     // hier8
-	hier_str[11] = "!="; hier_oper[11] = TOK_BNE;
-	hier_str[12] = 0;
-	hier_str[13] = "<="; hier_oper[13] = TOK_BLE;     // hier9
-	hier_str[14] = ">="; hier_oper[14] = TOK_BGE;
-	hier_str[15] = "<";  hier_oper[15] = TOK_BLT;
-	hier_str[16] = ">";  hier_oper[16] = TOK_BGT;
-	hier_str[17] = 0;
-	hier_str[18] = ">>"; hier_oper[18] = TOK_LSR;    // hier10
-	hier_str[19] = "<<"; hier_oper[19] = TOK_LSL;
-	hier_str[20] = 0;
-	hier_str[21] = "+";  hier_oper[21] = TOK_ADD;    // hier11
-	hier_str[22] = "-";  hier_oper[22] = TOK_SUB;
-	hier_str[23] = 0;
-	hier_str[24] = "*";  hier_oper[24] = TOK_MUL;    // hier12
-	hier_str[25] = "/";  hier_oper[25] = TOK_DIV;
-	hier_str[26] = "%";  hier_oper[26] = TOK_MOD;
-	hier_str[27] = 0;
 
 	// reserved words
 	dohash("ARGC", &argcid);

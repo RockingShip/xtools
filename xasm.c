@@ -225,8 +225,6 @@ int	curseg;			// Current segment
 int	datlen;			// length of data in datbuf
 int	debug;			// Debug   -d specified
 int	errflag;		// True if an error has occurred
-int	hier_oper[20];		// Internal translation of the above
-int	hier_str[20];		// Array containing hierarchical operators
 int	inphdl;			// handle for .ASM file
 int	inplnr;			// Linenumber of .C file
 int	lishdl;			// handle for .LIS file
@@ -966,57 +964,31 @@ calc(register int left, register int right, int oper) {
 /*
  * generic processing for <lval> { <operation> <rval> }
  */
-xplng1(register int (*hier)(), register int start, register int lval[]) {
-	register char *cptr, entry;
-	int rval[LLAST];
-
-	// Load lval
-	if (!(*hier)(lval))
-		return 0;
-
-	while (1) {
-		// Locate operation
-		entry = start;
-		while (1) {
-			if (!(cptr = hier_str[entry]))
-				return 1;
-			if (omatch(cptr))
-				break;
-			++entry;
+gencode_expr(int tok, register int lval[], register int rval[]) {
+	if ((lval[LTYPE] == CONSTANT) && (rval[LTYPE] == CONSTANT)) {
+		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
+	} else {
+		if ((lval[LTYPE] != EXPRESSION) && (rval[LTYPE] == EXPRESSION)) {
+			loadlval(lval);
+			sto_cmd(REL_SWAP, 0);
+		} else if ((lval[LTYPE] == EXPRESSION) && (rval[LTYPE] != EXPRESSION)) {
+			loadlval(rval);
+		} else if ((lval[LTYPE] != EXPRESSION) && (rval[LTYPE] != EXPRESSION)) {
+			loadlval(lval);
+			loadlval(rval);
 		}
-
-		// Load rval
-		if (!(*hier)(rval)) {
-			exprerr();
-			return 1;
-		}
-
-		// Generate code
-		if ((lval[LTYPE] == CONSTANT) && (rval[LTYPE] == CONSTANT)) {
-			lval[LVALUE] = calc(lval[LVALUE], hier_oper[entry], rval[LVALUE]);
-		} else {
-			if ((lval[LTYPE] != EXPRESSION) && (rval[LTYPE] == EXPRESSION)) {
-				loadlval(lval);
-				sto_cmd(REL_SWAP, 0);
-			} else if ((lval[LTYPE] == EXPRESSION) && (rval[LTYPE] != EXPRESSION)) {
-				loadlval(rval);
-			} else if ((lval[LTYPE] != EXPRESSION) && (rval[LTYPE] != EXPRESSION)) {
-				loadlval(lval);
-				loadlval(rval);
-			}
-			sto_cmd(hier_oper[entry], 0);
-			lval[LTYPE] = EXPRESSION;
-		}
+		sto_cmd(tok, 0);
+		lval[LTYPE] = EXPRESSION;
 	}
 }
 
 /*
  *
  */
-hier7(register int lval[]) {
+expr_unary(register int lval[]) {
 
 	if (match("~")) {
-		if (!hier7(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
@@ -1028,7 +1000,7 @@ hier7(register int lval[]) {
 			sto_cmd(REL_NOT, 0);
 		}
 	} else if (match("-")) {
-		if (!hier7(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
@@ -1040,7 +1012,7 @@ hier7(register int lval[]) {
 			sto_cmd(REL_NEG, 0);
 		}
 	} else if (match("+")) {
-		if (!hier7(lval)) {
+		if (!expr_unary(lval)) {
 			exprerr();
 			return 0;
 		}
@@ -1052,50 +1024,171 @@ hier7(register int lval[]) {
 /*
  *
  */
-hier6(register int lval[]) {
-	xplng1(hier7, 12, lval);
+expr_muldiv(register int *lval) {
+	int tok, rval[LLAST];
+
+	// Load lval
+	if (!expr_unary(lval))
+		return 0;
+
+	while (1) {
+		// Locate operation
+		if (omatch("*"))
+			tok = REL_MUL;
+		else if (omatch("/"))
+			tok = REL_DIV;
+		else if (omatch("%"))
+			tok = REL_MOD;
+		else
+			return 1;
+
+		// Load rval
+		if (!expr_unary(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(tok, lval, rval);
+	}
+}
+/*
+ *
+ */
+expr_addsub(register int *lval) {
+	int tok, rval[LLAST];
+
+	// Load lval
+	if (!expr_muldiv(lval))
+		return 0;
+
+	while (1) {
+		// Locate operation
+		if (omatch("+"))
+			tok = REL_ADD;
+		else if (omatch("-"))
+			tok = REL_SUB;
+		else
+			return 1;
+
+		// Load rval
+		if (!expr_muldiv(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(tok, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier5(register int lval[]) {
-	xplng1(hier6, 9, lval);
+expr_shift(register int lval[]) {
+	int tok, rval[LLAST];
+
+	// Load lval
+	if (!expr_addsub(lval))
+		return 0;
+
+	while (1) {
+		// Locate operation
+		if (omatch("<<"))
+			tok = REL_LSL;
+		else if (omatch(">>"))
+			tok = REL_LSR;
+		else
+			return 1;
+
+		// Load rval
+		if (!expr_addsub(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(tok, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier4(register int lval[]) {
-	xplng1(hier5, 6, lval);
+expr_and(register int lval[]) {
+	int rval[LLAST];
+
+	// Load lval
+	if (!expr_shift(lval))
+		return 0;
+
+	while (1) {
+		// Locate operation
+		if (!omatch("&"))
+			return 1;
+
+		// Load rval
+		if (!expr_shift(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(REL_AND, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier3(register int lval[]) {
-	xplng1(hier4, 4, lval);
+expr_xor(register int lval[]) {
+	int rval[LLAST];
+
+	// Load lval
+	if (!expr_and(lval))
+		return 0;
+
+	while (1) {
+		// Locate operation
+		if (!omatch("^"))
+			return 1;
+
+		// Load rval
+		if (!expr_and(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(REL_XOR, lval, rval);
+	}
 }
 
 /*
  *
  */
-hier2(register int lval[]) {
-	xplng1(hier3, 2, lval);
-}
+expr_or(register int lval[]) {
+	int rval[LLAST];
 
-/*
- *
- */
-hier1(register int lval[]) {
-	xplng1(hier2, 0, lval);
+	// Load lval
+	if (!expr_xor(lval))
+		return 0;
+
+	while (1) {
+		// Locate operation
+		if (!omatch("|"))
+			return 1;
+
+		// Load rval
+		if (!expr_xor(rval)) {
+			exprerr();
+			return 1;
+		}
+
+		gencode_expr(REL_OR, lval, rval);
+	}
 }
 
 /*
  * Load a numerical expression seperated by comma's
  */
 expression(register int lval[]) {
-	if (!hier1(lval))
+	if (!expr_or(lval))
 		error("expression required");
 }
 
@@ -1105,7 +1198,7 @@ expression(register int lval[]) {
 constexpr(register int *val) {
 	int lval[LLAST];
 
-	if (!hier1(lval))
+	if (!expr_or(lval))
 		return 0;
 	if (lval[LTYPE] == CONSTANT) {
 		*val = lval[LVALUE];
@@ -1270,7 +1363,7 @@ do_pseudo(register int p[]) {
 				gch(); // skip terminator
 			} else {
 				// get an expression
-				if (!hier1(lval))
+				if (!expr_or(lval))
 					break;
 
 				if (pass == 2) {
@@ -1762,23 +1855,6 @@ initialize() {
 	add_res("R14", REGISTER, 14);
 	add_res("R15", REGISTER, 15);
 	add_res(".", POINT, 0);
-
-	hier_str[ 0] = "|";  hier_oper[ 0] = REL_OR;    // hier1
-	hier_str[ 1] = 0;
-	hier_str[ 2] = "^";  hier_oper[ 2] = REL_XOR;   // hier2
-	hier_str[ 3] = 0;
-	hier_str[ 4] = "&";  hier_oper[ 4] = REL_AND;   // hier3
-	hier_str[ 5] = 0;
-	hier_str[ 6] = ">>"; hier_oper[ 6] = REL_LSR;   // hier4
-	hier_str[ 7] = "<<"; hier_oper[ 7] = REL_LSL;
-	hier_str[ 8] = 0;
-	hier_str[ 9] = "+";  hier_oper[ 9] = REL_ADD;   // hier5
-	hier_str[10] = "-";  hier_oper[10] = REL_SUB;
-	hier_str[11] = 0;
-	hier_str[12] = "*";  hier_oper[12] = REL_MUL;   // hier6
-	hier_str[13] = "/";  hier_oper[13] = REL_DIV;
-	hier_str[14] = "%";  hier_oper[14] = REL_MOD;
-	hier_str[15] = 0;
 }
 
 /*
