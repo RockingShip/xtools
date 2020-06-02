@@ -459,16 +459,16 @@ open_olb() {
 
 	inphdl = open_file(inpfn, "r");
 
-	for (i = 0; i < LBHLAST; i++)
+	for (i = 0; i < LBHLAST; ++i)
 		lbhdr[i] = read_word();
 	if (lbhdr[LBHNAME] > NAMEMAX)
 		fatal("name table too large in .OLB\n");
 	if (lbhdr[LBHFILE] > FILEMAX)
 		fatal("file table too large in .OLB\n");
-	for (i = 0; i < lbhdr[LBHNAME] * LBNLAST; i++)
+	for (i = 0; i < lbhdr[LBHNAME] * LBNLAST; ++i)
 		lbname[i] = read_word();
 	if (lbhdr[LBHFILE] > 0)
-		for (i = 0; i < lbhdr[LBHFILE] * LBFLAST; i++)
+		for (i = 0; i < lbhdr[LBHFILE] * LBFLAST; ++i)
 			lbfile[i] = read_word();
 
 	if (verbose)
@@ -509,7 +509,7 @@ objmap() {
 	fprintf(lishdl, "id         module             library         BASE LEN   BASE LEN   BASE LEN   BASE LEN \n");
 	fprintf(lishdl, "-- -------------------- --------------------  ---- ----  ---- ----  ---- ----  ---- ----\n");
 
-	for (i = 0; i < file2inx; i++) {
+	for (i = 0; i < file2inx; ++i) {
 		p = &file2[i * FLAST];
 		fprintf(lishdl, "%2d ", i + 1);
 		len = foutname(p[FFILE]);
@@ -537,7 +537,7 @@ symmap(register int start) {
 	register int ch, *p, hash, tab;
 
 	tab = (!start) ? 0 : start;
-	for (ch = '!'; ch <= '~'; ch++) {
+	for (ch = '!'; ch <= '~'; ++ch) {
 		hash = (start + ch * ch) % NAMEMAX;
 		while (1) {
 			p = &name[hash * NLAST];
@@ -1042,7 +1042,7 @@ doreloc() {
 	curlen = 0;
 
 	// relocate CODE
-	for (i = 0; i < file2inx; i++) {
+	for (i = 0; i < file2inx; ++i) {
 		p = &file2[i * FLAST];
 		if (p[FFILE] != -1) {
 			p[FCODEBASE] = curpos;
@@ -1058,7 +1058,7 @@ doreloc() {
 	curlen = 0;
 
 	// relocate DATA
-	for (i = 0; i < file2inx; i++) {
+	for (i = 0; i < file2inx; ++i) {
 		p = &file2[i * FLAST];
 		if (p[FFILE] != -1) {
 			p[FDATABASE] = curpos;
@@ -1074,7 +1074,7 @@ doreloc() {
 	curlen = 0;
 
 	// relocate TEXT
-	for (i = 0; i < file2inx; i++) {
+	for (i = 0; i < file2inx; ++i) {
 		p = &file2[i * FLAST];
 		if (p[FFILE] != -1) {
 			p[FTEXTBASE] = curpos;
@@ -1090,7 +1090,7 @@ doreloc() {
 	curlen = 0;
 
 	// relocate UDEF
-	for (i = 0; i < file2inx; i++) {
+	for (i = 0; i < file2inx; ++i) {
 		p = &file2[i * FLAST];
 		if (p[FFILE] != -1) {
 			p[FUDEFBASE] = curpos;
@@ -1108,7 +1108,7 @@ doreloc() {
 	p[NVALUE] = stksiz;
 
 	// relocate all symbols
-	for (i = 0; i < NAMEMAX; i++) {
+	for (i = 0; i < NAMEMAX; ++i) {
 		p = &name[i * NLAST];
 		if (p[NTYPE] == CODE)
 			p[NVALUE] += file2[p[NMODULE] * FLAST + FCODEBASE];
@@ -1133,7 +1133,7 @@ process() {
 		printf("Pass 1\n");
 
 	// process pass 1
-	for (i = 0; i < file1inx; i++) {
+	for (i = 0; i < file1inx; ++i) {
 		fp = &file1[i * FLAST];
 		if (fp[FLIB] == -1) {
 			// process object
@@ -1147,7 +1147,7 @@ process() {
 			open_olb();
 			found = 0;
 			while (1) {
-				for (j = 0; j < NAMEMAX; j++) {
+				for (j = 0; j < NAMEMAX; ++j) {
 					p = &name[j * NLAST];
 					if (p[NTYPE] == UNDEF) {
 						// found undefined symbol, test if in library
@@ -1182,7 +1182,7 @@ process() {
 	// test for undefined symbols
 	if (!undef) {
 		j = 0;
-		for (i = 0; i < NAMEMAX; i++) {
+		for (i = 0; i < NAMEMAX; ++i) {
 			p = &name[i * NLAST];
 			if (p[NTYPE] == UNDEF) {
 				if (!j) {
@@ -1209,7 +1209,7 @@ process() {
 	fwrite(datbuf, 1, 4, outhdl);
 
 	// process pass 2
-	for (i = 0; i < file2inx; i++) {
+	for (i = 0; i < file2inx; ++i) {
 		fp = &file2[i * FLAST];
 		if (fp[FLIB] == -1) {
 			// process object
@@ -1264,7 +1264,7 @@ initialize() {
 	file1inx = file2inx = 0;
 
 	// reset tables
-	for (i = 0; i < NAMEMAX; i++) {
+	for (i = 0; i < NAMEMAX; ++i) {
 		p = &name[i * NLAST];
 		p[NCHAR] = p[NTYPE] = p[NVALUE] = 0;
 	}
@@ -1312,7 +1312,7 @@ fext(char *out, char *path, char *ext, int force) {
 	int baselen;
 
 	baselen = 0;
-	for (p = path; *p; p++) {
+	for (p = path; *p; ++p) {
 		if (*p == '\\' || *p == '/')
 			baselen = 0;
 		else if (*p == '.')
@@ -1335,7 +1335,7 @@ fext(char *out, char *path, char *ext, int force) {
 startup(register int *argv) {
 	int hash, *p;
 
-	argv++; // skip argv[0]
+	++argv; // skip argv[0]
 	while (*argv) {
 		register char *arg;
 		arg = *argv++;
@@ -1359,7 +1359,7 @@ startup(register int *argv) {
 			p[FUDEFBASE] = p[FUDEFPOS] = p[FUDEFLEN] = 0;
 		} else {
 			// Process option
-			arg++;
+			++arg;
 			switch (*arg++) {
 			case 'd':
 				debug = 1;
@@ -1451,7 +1451,7 @@ main(int argc, int *argv) {
 
 	if (lishdl) {
 		j = 0;
-		for (i = 0; i < NAMEMAX; i++) if (name[i * NLAST + NCHAR]) j++;
+		for (i = 0; i < NAMEMAX; ++i) if (name[i * NLAST + NCHAR]) ++j;
 		fprintf(lishdl, "Names        : %5d/%5d)\n", j, NAMEMAX);
 	}
 

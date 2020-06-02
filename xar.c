@@ -347,7 +347,7 @@ open_olb() {
 		// init header for empty archive
 		olbhdr[HNAME] = NAMEMAX;
 		// set all symbols to 'not in library'
-		for (i = 0; i < NAMEMAX; i++)
+		for (i = 0; i < NAMEMAX; ++i)
 			name[i * NLAST + NLIB] = -1;
 		return;
 	}
@@ -355,20 +355,20 @@ open_olb() {
 	if (verbose)
 		printf("Loading library %s %d\n", olbfn, olbhdl);
 
-	for (i = 0; i < HLAST; i++)
+	for (i = 0; i < HLAST; ++i)
 		olbhdr[i] = read_word_olb();
 	if (olbhdr[HNAME] > NAMEMAX)
 		fatal("name table too large in .OLB\n");
 	if (olbhdr[HFILE] > FILEMAX)
 		fatal("file table too large in .OLB\n");
-	for (i = 0; i < olbhdr[HNAME] * NLAST; i++)
+	for (i = 0; i < olbhdr[HNAME] * NLAST; ++i)
 		name[i] = read_word_olb();
 	if (olbhdr[HFILE] > 0)
-		for (i = 0; i < olbhdr[HFILE] * FLAST; i++)
+		for (i = 0; i < olbhdr[HFILE] * FLAST; ++i)
 			file[i] = read_word_olb();
 
 	// duplicate offset fields
-	for (i = 0; i < olbhdr[HFILE]; i++) {
+	for (i = 0; i < olbhdr[HFILE]; ++i) {
 		p = &file[i * FLAST];
 		p[FOLDOFS] = p[FOFFSET];
 	}
@@ -406,7 +406,7 @@ objmap() {
 	printf("id       filename          offset       length   \n");
 	printf("-- -------------------- ------------ ------------\n");
 
-	for (i = 0; i < olbhdr[HFILE]; i++) {
+	for (i = 0; i < olbhdr[HFILE]; ++i) {
 		p = &file[i * FLAST];
 		printf("%2d ", i + 1);
 		len = outname(p[FNAME]);
@@ -424,7 +424,7 @@ symmap(register int start) {
 	register int ch, *p, hash, tab;
 
 	tab = (!start) ? 0 : start;
-	for (ch = '!'; ch <= '~'; ch++) {
+	for (ch = '!'; ch <= '~'; ++ch) {
 		hash = (start + ch * ch) % olbhdr[HNAME];
 		while (1) {
 			p = &name[hash * NLAST];
@@ -469,7 +469,7 @@ do_cre() {
 	olbhdr[HNAME] = NAMEMAX;
 	olbhdr[HFILE] = 0;
 	// Initialize nametable
-	for (i = 0; i < NAMEMAX; i++)
+	for (i = 0; i < NAMEMAX; ++i)
 		name[i * NLAST + NLIB] = -1;
 
 	// open outputfile
@@ -477,9 +477,9 @@ do_cre() {
 	outhdl = open_file(outfn, "w");
 
 	// Writeout
-	for (i = 0; i < HLAST; i++)
+	for (i = 0; i < HLAST; ++i)
 		write_word(olbhdr[i]);
-	for (i = 0; i < olbhdr[HNAME] * NLAST; i++)
+	for (i = 0; i < olbhdr[HNAME] * NLAST; ++i)
 		write_word(name[i]);
 
 	// close and rename
@@ -505,12 +505,12 @@ do_add() {
 
 	// first delete any existing occurrences
 	dohash(modn, &hash);
-	for (objinx = 0; objinx < olbhdr[HFILE]; objinx++)
+	for (objinx = 0; objinx < olbhdr[HFILE]; ++objinx)
 		if (file[objinx * FLAST + FNAME] == hash)
 			break;
 	if (objinx < olbhdr[HFILE]) {
 		// found existing entry, overwrite
-		for (i = 0; i < olbhdr[HNAME]; i++) {
+		for (i = 0; i < olbhdr[HNAME]; ++i) {
 			p = &name[i * NLAST];
 			if (p[NLIB] == objinx)
 				p[NLIB] = -1;
@@ -642,7 +642,7 @@ do_add() {
 	olblen = (HLAST * BPW) +
 		 (olbhdr[HNAME] * NLAST * BPW) +
 		 (olbhdr[HFILE] * FLAST * BPW);
-	for (i = 0; i < olbhdr[HFILE]; i++) {
+	for (i = 0; i < olbhdr[HFILE]; ++i) {
 		p = &file[i * FLAST];
 		p[FOFFSET] = olblen;
 		olblen += p[FLENGTH];
@@ -661,15 +661,15 @@ do_add() {
 	outhdl = open_file(outfn, "w");
 
 	// Writeout
-	for (i = 0; i < HLAST; i++)
+	for (i = 0; i < HLAST; ++i)
 		write_word(olbhdr[i]);
-	for (i = 0; i < olbhdr[HNAME] * NLAST; i++)
+	for (i = 0; i < olbhdr[HNAME] * NLAST; ++i)
 		write_word(name[i]);
-	for (i = 0; i < olbhdr[HFILE] * FLAST; i++)
+	for (i = 0; i < olbhdr[HFILE] * FLAST; ++i)
 		write_word(file[i]);
 
 	// copy objects and append new object
-	for (i = 0; i < olbhdr[HFILE]; i++) {
+	for (i = 0; i < olbhdr[HFILE]; ++i) {
 		p = &file[i * FLAST];
 		if (p[FOLDOFS])
 			copy_obj(olbhdl, p[FOLDOFS], p[FLENGTH]);
@@ -697,7 +697,7 @@ do_del() {
 
 	// locate module in filetable
 	dohash(modn, &hash);
-	for (objinx = 0; objinx < olbhdr[HFILE]; objinx++)
+	for (objinx = 0; objinx < olbhdr[HFILE]; ++objinx)
 		if (file[objinx * FLAST + FNAME] == hash)
 			break;
 	if (objinx >= olbhdr[HFILE]) {
@@ -706,7 +706,7 @@ do_del() {
 	}
 
 	// remove all symbol references
-	for (i = 0; i < olbhdr[HNAME]; i++) {
+	for (i = 0; i < olbhdr[HNAME]; ++i) {
 		p = &name[i * NLAST];
 		if (p[NLIB] == objinx)
 			p[NLIB] = -1;
@@ -715,7 +715,7 @@ do_del() {
 	}
 
 	// remove fileentry
-	for (i = objinx; i < olbhdr[HFILE]; i++) {
+	for (i = objinx; i < olbhdr[HFILE]; ++i) {
 		p = &file[i * FLAST];
 		p[FNAME] = p[FNAME + FLAST];
 		p[FOLDOFS] = p[FOLDOFS + FLAST];
@@ -727,7 +727,7 @@ do_del() {
 	olblen = (HLAST * BPW) +
 		 (olbhdr[HNAME] * NLAST * BPW) +
 		 (olbhdr[HFILE] * FLAST * BPW);
-	for (i = 0; i < olbhdr[HFILE]; i++) {
+	for (i = 0; i < olbhdr[HFILE]; ++i) {
 		p = &file[i * FLAST];
 		p[FOFFSET] = olblen;
 		olblen += p[FLENGTH];
@@ -738,15 +738,15 @@ do_del() {
 	outhdl = open_file(outfn, "w");
 
 	// Writeout
-	for (i = 0; i < HLAST; i++)
+	for (i = 0; i < HLAST; ++i)
 		write_word(olbhdr[i]);
-	for (i = 0; i < olbhdr[HNAME] * NLAST; i++)
+	for (i = 0; i < olbhdr[HNAME] * NLAST; ++i)
 		write_word(name[i]);
-	for (i = 0; i < olbhdr[HFILE] * FLAST; i++)
+	for (i = 0; i < olbhdr[HFILE] * FLAST; ++i)
 		write_word(file[i]);
 
 	// copy objects and append new object
-	for (i = 0; i < olbhdr[HFILE]; i++) {
+	for (i = 0; i < olbhdr[HFILE]; ++i) {
 		p = &file[i * FLAST];
 		copy_obj(olbhdl, p[FOLDOFS], p[FLENGTH]);
 	}
@@ -771,7 +771,7 @@ do_ext() {
 
 	// locate module in filetable
 	dohash(modn, &hash);
-	for (objinx = 0; objinx < olbhdr[HFILE]; objinx++) {
+	for (objinx = 0; objinx < olbhdr[HFILE]; ++objinx) {
 		p = &file[objinx * FLAST];
 		if (p[FNAME] == hash)
 			break;
@@ -801,7 +801,7 @@ initialize() {
 	objfn[0] = olbfn[0] = outfn[0] = 0;
 
 	// reset tables
-	for (i = 0; i < NAMEMAX; i++) {
+	for (i = 0; i < NAMEMAX; ++i) {
 		p = &name[i * NLAST];
 		p[NCHAR] = p[NLIB] = 0;
 	}
@@ -834,7 +834,7 @@ fext(char *out, char *path, char *ext, int force) {
 	int baselen;
 
 	baselen = 0;
-	for (p = path; *p; p++) {
+	for (p = path; *p; ++p) {
 		if (*p == '\\' || *p == '/')
 			baselen = 0;
 		else if (*p == '.')
@@ -855,7 +855,7 @@ fext(char *out, char *path, char *ext, int force) {
  *
  */
 startup(register int *argv) {
-	argv++; // skip argv[0]
+	++argv; // skip argv[0]
 	while (*argv) {
 		register char *arg;
 		arg = *argv++;
@@ -895,7 +895,7 @@ startup(register int *argv) {
 				usage();
 		} else {
 			// Process option
-			arg++;
+			++arg;
 			switch (*arg++) {
 			case 'd':
 				debug = 1;
@@ -955,7 +955,7 @@ main(int argc, int *argv) {
 
 	if (debug) {
 		j = 0;
-		for (i = 0; i < olbhdr[HNAME]; i++) if (name[i * NLAST + NCHAR]) j++;
+		for (i = 0; i < olbhdr[HNAME]; ++i) if (name[i * NLAST + NCHAR]) ++j;
 		printf("Names        : %5d/%5d\n", j, olbhdr[HNAME]);
 	}
 

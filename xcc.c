@@ -1,5 +1,13 @@
 /*
  * X-C-Compiler/Assembler/Linker/Archiver
+ *
+ * @date 2020-06-02 15:51:08
+ *
+ * Known issues:
+ * 	- Pointer arithmetic.
+ * 	  Only "&arr[n]" is checked to work. All code is written in this style.
+ * 	- Advanced pointers like "char ***p".
+ * 	  Implementations should work, only declarations are lacking.
  */
 
 /*
@@ -47,12 +55,11 @@ enum {
  */
 
 enum {
-	CONSTANT = 1,	// constant without storage
+	EXTERNAL = 1,	// external global variables
 	STATIC,		// static global variables
+	GLOBAL,		// global variables
 	SP_AUTO,	// local variables
 	AP_AUTO,	// procedure arguments
-	EXTERNAL,	// external global variables
-	GLOBAL,		// global variables
 	REGISTER,	// register variables
 };
 
@@ -313,7 +320,7 @@ gch() {
 		readline();
 		lptr = sbuf;
 	} else {
-		lptr++;
+		++lptr;
 	}
 
 	// todo: remove all references to lptr and replace next with "nch = *lptr";
@@ -329,7 +336,7 @@ gch() {
 bump(int n) {
 	while (n) {
 		gch();
-		n--;
+		--n;
 	}
 }
 
@@ -406,7 +413,7 @@ match(register char *lit) {
 	while (lit[i]) {
 		if (lptr[i] != lit[i])
 			return 0;
-		i++;
+		++i;
 	}
 
 	bump(i);
@@ -425,7 +432,7 @@ amatch(register char *lit) {
 	while (lit[i]) {
 		if (lptr[i] != lit[i])
 			return 0;
-		i++;
+		++i;
 	}
 	if (ctype[lptr[i]] & CSYMNEXT)
 		return 0;
@@ -500,7 +507,7 @@ symname(register int tab) {
 dohash(register char *name, int *retval) {
 	register int start, hash, tab, len;
 
-	if (~ctype[*name] & CSYMFIRST)
+	if (!(ctype[*name] & CSYMFIRST))
 		return 0; // Not a symbol
 
 	tab = 0;
@@ -705,9 +712,9 @@ gencode_lval(int opc, int lreg, int lval[]) {
 allocreg() {
 	register int i, mask;
 
-	for (i = 2; i < REGMAX; i++) {
+	for (i = 2; i < REGMAX; ++i) {
 		mask = 1 << i;
-		if (~(regresvd | reguse) & mask) {
+		if (!((regresvd | reguse) & mask)) {
 			regsum |= reguse |= mask;
 			return i;
 		}
@@ -928,7 +935,7 @@ number(register int *val) {
 	register int i, minus;
 
 	i = minus = 0;
-	if (~ctype[ch] & CISDIGIT)
+	if (!(ctype[ch] & CISDIGIT))
 		return 0;
 	if ((ch == '0') && (toupper(nch) == 'X')) {
 		bump(2);
@@ -1038,7 +1045,7 @@ primary(register int lval[]) {
 	bump(len); // Skip identifier
 
 	// identifier. Scan in reverse order of creation.
-	for (i = symidx - 1; i >= 0; i--) {
+	for (i = symidx - 1; i >= 0; --i) {
 		sym = &syms[i * ILAST];
 		if (sym[ISYM] == sname) {
 			lval[LTYPE] = sym[ITYPE];
@@ -1230,7 +1237,7 @@ expr_postfix(register int lval[]) {
 			}
 			// Update data type
 			lval[LTYPE] = MEMORY;
-			lval[LPTR]--; // deference pointer
+			--lval[LPTR]; // deference pointer
 		}
 		needtoken("]");
 	}
@@ -1371,7 +1378,7 @@ expr_unary(register int lval[]) {
 
 			// Update data type
 			lval[LTYPE] = MEMORY;
-			lval[LPTR]--; // deference pointer
+			--lval[LPTR]; // deference pointer
 		}
 
 		return 1;
@@ -1384,7 +1391,7 @@ expr_unary(register int lval[]) {
 			error("Illegal address");
 		else {
 			lval[LTYPE] = ADDRESS;
-			lval[LPTR]++;
+			++lval[LPTR];
 		}
 	} else {
 		if (!expr_postfix(lval))
@@ -1949,7 +1956,7 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 	// get lo/hi bounds
 	ptr = &sw[(swbase + 1) * SLAST];
 	lo = hi = ptr[SCASE];
-	for (i = swbase + 1; i < swinx; i++) {
+	for (i = swbase + 1; i < swinx; ++i) {
 		ptr = &sw[i * SLAST];
 		if (ptr[SCASE] > hi)
 			hi = ptr[SCASE];
@@ -1966,9 +1973,9 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 	toseg(DATASEG);
 	fprintf(outhdl, "_%d:", maplbl);
 	cnt = 0;
-	for (i = lo; i <= hi; i++) {
+	for (i = lo; i <= hi; ++i) {
 		lbl = deflbl;
-		for (j = swbase + 1; j < swinx; j++) {
+		for (j = swbase + 1; j < swinx; ++j) {
 			ptr = &sw[j * SLAST];
 			if (ptr[SCASE] == i) {
 				lbl = ptr[SLABEL];
@@ -2041,7 +2048,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			csp = sav_csp;
 		}
 		// free local registers
-		for (i = scope; i < symidx; i++) {
+		for (i = scope; i < symidx; ++i) {
 			sym = &syms[i * ILAST];
 			if (sym[ICLASS] == REGISTER)
 				freereg(sym[IREG]);
@@ -2218,7 +2225,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		if (!constexpr(&lbl3))
 			expected("case value");
 		needtoken(":");
-		for (i = swbase + 1; i < swinx; i++)
+		for (i = swbase + 1; i < swinx; ++i)
 			if (sw[i * SLAST + SCASE] == lbl3)
 				error("case value already defined");
 		lbl1 = ++nxtlabel;
@@ -2288,13 +2295,12 @@ dump_ident(int ident[]) {
 
 	if (!classnames[0]) {
 		classnames[0] = "0";
-		classnames[1] = "CONSTANT";
+		classnames[1] = "EXTERNAL";
 		classnames[2] = "STATIC";
-		classnames[3] = "SP_AUTO";
-		classnames[4] = "AP_AUTO";
-		classnames[5] = "EXTERNAL";
-		classnames[6] = "GLOBAL";
-		classnames[7] = "REGISTER";
+		classnames[3] = "GLOBAL";
+		classnames[4] = "SP_AUTO";
+		classnames[5] = "AP_AUTO";
+		classnames[6] = "REGISTER";
 		typenames[0] = "0";
 		typenames[1] = "ADDRESS";
 		typenames[2] = "MEMORY";
@@ -2338,7 +2344,7 @@ declenum(int scope) {
 		bump(len);
 
 		// add symbol to symboltable
-		for (i = scope; i < symidx; i++) {
+		for (i = scope; i < symidx; ++i) {
 			sym = &syms[i * ILAST];
 			if (sym[ISYM] == sname) {
 				multidef();
@@ -2350,7 +2356,7 @@ declenum(int scope) {
 			fatal("identifier table overflow");
 		sym = &syms[symidx++ * ILAST];
 		sym[ISYM] = sname;
-		sym[ICLASS] = CONSTANT;
+		sym[ICLASS] = EXTERNAL; // external has no storage
 		sym[ITYPE] = ADDRESS;
 		sym[IPTR] = 0;
 		sym[ISIZE] = 0;
@@ -2407,7 +2413,7 @@ declvar(int scope, register int clas) {
 		if (len)
 			bump(len);
 
-		for (i = scope; i < symidx; i++) {
+		for (i = scope; i < symidx; ++i) {
 			if (syms[i * ILAST + ISYM] == sname) {
 				multidef();
 				break;
@@ -2423,7 +2429,7 @@ declvar(int scope, register int clas) {
 
 			type = ADDRESS;
 			// add extra indirection to endtype
-			ptr++;
+			++ptr;
 
 			// get number of elements
 			if (!constexpr(&cnt))
@@ -2535,7 +2541,7 @@ declarg(int scope, register int clas, register int argnr) {
 		if (len)
 			bump(len);
 
-		for (i = scope; i < symidx; i++) {
+		for (i = scope; i < symidx; ++i) {
 			sym = &syms[i * ILAST];
 			if (sym[ISYM] == sname) {
 				multidef();
@@ -2608,7 +2614,7 @@ declfunc(int clas) {
 
 	scope = symidx;
 
-	for (i = 0; i < symidx; i++) {
+	for (i = 0; i < symidx; ++i) {
 		sym = &syms[i * ILAST];
 		if (sym[ISYM] == sname)
 			break;
@@ -2668,7 +2674,7 @@ declfunc(int clas) {
 	sym[ICLASS] = clas;
 
 	// post-process parameters. syms[scope] is function name
-	for (i = scope + 1; i < symidx; i++) {
+	for (i = scope + 1; i < symidx; ++i) {
 		sym = &syms[i * ILAST];
 
 		// tweak ap offsets
@@ -2759,15 +2765,15 @@ initialize() {
 	debug = 0;
 
 	// character properties
-	for (i = '0'; i <= '9'; i++)
+	for (i = '0'; i <= '9'; ++i)
 		ctype[i] = CISDIGIT | CISXDIGIT | CSYMNEXT;
-	for (i = 'A'; i <= 'F'; i++)
+	for (i = 'A'; i <= 'F'; ++i)
 		ctype[i] = CISUPPER | CISXDIGIT | CSYMFIRST | CSYMNEXT;
-	for (i = 'G'; i <= 'Z'; i++)
+	for (i = 'G'; i <= 'Z'; ++i)
 		ctype[i] = CISUPPER | CSYMFIRST | CSYMNEXT;
-	for (i = 'a'; i <= 'f'; i++)
+	for (i = 'a'; i <= 'f'; ++i)
 		ctype[i] = CISLOWER | CISXDIGIT | CSYMFIRST | CSYMNEXT;
-	for (i = 'g'; i <= 'z'; i++)
+	for (i = 'g'; i <= 'z'; ++i)
 		ctype[i] = CISLOWER | CSYMFIRST | CSYMNEXT;
 	ctype['_'] = CSYMFIRST | CSYMNEXT;
 	ctype[' '] = CISSPACE;
@@ -2778,11 +2784,11 @@ initialize() {
 	ctype['\v'] = CISSPACE;
 
 	// reset table
-	for (i = 0; i < NAMEMAX; i++)
+	for (i = 0; i < NAMEMAX; ++i)
 		namech[i] = nametab[i] = 0;
-	for (i = 0; i < SYMMAX; i++)
+	for (i = 0; i < SYMMAX; ++i)
 		syms[i * ILAST + ISYM] = 0;
-	for (i = 0; i < SWMAX; i++)
+	for (i = 0; i < SWMAX; ++i)
 		sw[i * SLAST + SLABEL] = 0;
 
 	// reserve first entry so it terminates lists
@@ -2814,7 +2820,7 @@ fext(char *out, char *path, char *ext, int force) {
 	int baselen;
 
 	baselen = 0;
-	for (p = path; *p; p++) {
+	for (p = path; *p; ++p) {
 		if (*p == '\\' || *p == '/')
 			baselen = 0;
 		else if (*p == '.')
@@ -2835,7 +2841,7 @@ fext(char *out, char *path, char *ext, int force) {
  * Handle program arguments
  */
 startup(register int *argv) {
-	argv++; // skip argv[0]
+	++argv; // skip argv[0]
 	while (*argv) {
 		register char *arg;
 		arg = *argv++;
@@ -2846,7 +2852,7 @@ startup(register int *argv) {
 				fext(outfn, arg, ".xs", 1);
 		} else {
 			// Process option
-			arg++;
+			++arg;
 			switch (*arg++) {
 			case 'S':
 				if (!*arg && *argv)
@@ -2899,12 +2905,12 @@ main(int argc, int *argv) {
 	fprintf(outhdl, "\t.END\n");
 
 	j = 0;
-	for (i = 0; i < NAMEMAX; i++) if (namech[i]) j++;
+	for (i = 0; i < NAMEMAX; ++i) if (namech[i]) ++j;
 	fprintf(outhdl, "; Names        : %5d/%5d\n", j, NAMEMAX);
-	for (i = 0; i < SYMMAX && syms[i * ILAST + ISYM]; i++);
+	for (i = 0; i < SYMMAX && syms[i * ILAST + ISYM]; ++i);
 	fprintf(outhdl, "; Identifiers  : %5d/%5d\n", i, SYMMAX);
 	fprintf(outhdl, "; Local labels : %5d\n", nxtlabel);
-	for (i = 1; (i < SWMAX) && sw[i * SLAST + SLABEL]; i++);
+	for (i = 1; (i < SWMAX) && sw[i * SLAST + SLABEL]; ++i);
 	fprintf(outhdl, "; Switch cases : %5d/%5d\n", i - 1, SWMAX);
 
 	return errflag;

@@ -408,7 +408,7 @@ match(register char *lit) {
 	while (lit[i]) {
 		if (lptr[i] != lit[i])
 			return 0;
-		i++;
+		++i;
 	}
 
 	bump(i);
@@ -427,7 +427,7 @@ amatch(register char *lit) {
 	while (lit[i]) {
 		if (lptr[i] != lit[i])
 			return 0;
-		i++;
+		++i;
 	}
 	if (ctype[lptr[i]] & CSYMNEXT)
 		return 0;
@@ -567,7 +567,7 @@ sto_flush() {
 		} else {
 			i = 0;
 			while (i < datlen) {
-				for (j = 0; j < 16; j++) {
+				for (j = 0; j < 16; ++j) {
 					fprintf(outhdl, "0x%02x", (i >= datlen) ? 0 : datbuf[i]);
 					if (++i >= datlen)
 						break;
@@ -1758,15 +1758,15 @@ initialize() {
 	datlen = 0;
 
 	// character properties
-	for (i = '0'; i <= '9'; i++)
+	for (i = '0'; i <= '9'; ++i)
 		ctype[i] = CISDIGIT | CISXDIGIT | CSYMNEXT;
-	for (i = 'A'; i <= 'F'; i++)
+	for (i = 'A'; i <= 'F'; ++i)
 		ctype[i] = CISUPPER | CISXDIGIT | CSYMFIRST | CSYMNEXT;
-	for (i = 'G'; i <= 'Z'; i++)
+	for (i = 'G'; i <= 'Z'; ++i)
 		ctype[i] = CISUPPER | CSYMFIRST | CSYMNEXT;
-	for (i = 'a'; i <= 'f'; i++)
+	for (i = 'a'; i <= 'f'; ++i)
 		ctype[i] = CISLOWER | CISXDIGIT | CSYMFIRST | CSYMNEXT;
-	for (i = 'g'; i <= 'z'; i++)
+	for (i = 'g'; i <= 'z'; ++i)
 		ctype[i] = CISLOWER | CSYMFIRST | CSYMNEXT;
 	ctype['_'] = CSYMFIRST | CSYMNEXT;
 	ctype['.'] = CSYMFIRST | CSYMNEXT;
@@ -1778,7 +1778,7 @@ initialize() {
 	ctype['\v'] = CISSPACE;
 
 	// reset table
-	for (i = 0; i < NAMEMAX; i++) {
+	for (i = 0; i < NAMEMAX; ++i) {
 		p = &names[i * NLAST];
 		p[NCHAR] = p[NTYPE] = 0;
 	}
@@ -1878,7 +1878,7 @@ fext(char *out, char *path, char *ext, int force) {
 	int baselen;
 
 	baselen = 0;
-	for (p = path; *p; p++) {
+	for (p = path; *p; ++p) {
 		if (*p == '\\' || *p == '/')
 			baselen = 0;
 		else if (*p == '.')
@@ -1899,7 +1899,7 @@ fext(char *out, char *path, char *ext, int force) {
  * Handle program arguments
  */
 startup(register int *argv) {
-	argv++; // skip argv[0]
+	++argv; // skip argv[0]
 	while (*argv) {
 		register char *arg;
 		arg = *argv++;
@@ -1910,7 +1910,7 @@ startup(register int *argv) {
 				fext(outfn, arg, ".xo", 1);
 		} else {
 			// Process option
-			arg++;
+			++arg;
 			switch (*arg++) {
 			case 'a':
 				if (!*arg && *argv)
@@ -2004,7 +2004,7 @@ main(int argc, int *argv) {
 		fprintf(lishdl, "TEXT  : 0x%04x (%5d)\n", maxpos[TEXTSEG] & 0xffff, maxpos[TEXTSEG] & 0xffff);
 		fprintf(lishdl, "UDEF  : 0x%04x (%5d)\n", maxpos[UDEFSEG] & 0xffff, maxpos[UDEFSEG] & 0xffff);
 		j = 0;
-		for (i = 0; i < NAMEMAX; i++) if (names[i * NLAST + NCHAR]) j++;
+		for (i = 0; i < NAMEMAX; ++i) if (names[i * NLAST + NCHAR]) ++j;
 		fprintf(lishdl, "Names : %5d(%5d)\n", j, NAMEMAX);
 	}
 

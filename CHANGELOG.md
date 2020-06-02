@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-02 15:59:42 Synced post-increments to pre-increments.
+                    And other tweaks that generate better. 
+                    More optimal coding.
 2020-06-02 15:35:10 Rename `LTYPE=VARIABLE` and convert to `LTYPE=MEMORY`.
                     Drop `LEA` as it is no longer needed.
 2020-06-02 15:09:34 Consistent use of LTYPE=ADDRESS and register variables.
