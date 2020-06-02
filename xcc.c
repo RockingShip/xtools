@@ -62,18 +62,9 @@ enum {
 
 enum {
 	ADDRESS = 1,
-	VARIABLE,
+	MEMORY,
 	FUNCTION,
 	BRANCH,
-};
-
-/*
- * Possible values for "EA"
- */
-
-enum {
-	EA_ADDR = 1,
-	EA_IND,
 };
 
 /*
@@ -85,7 +76,6 @@ enum {
 	LTYPE = 0,
 	LPTR,
 	LSIZE,
-	LEA,
 	LNAME,
 	LVALUE,
 	LREG,
@@ -218,13 +208,11 @@ int	maklis;			// Listing -h specified
 int	nametab[NAMEMAX];	// Name table
 int	nxtlabel;		// Next label number
 int	outhdl;			// handle for .ASM file
-int	pinx;			// Position in preprocessor buffer
 int	prevseg;		// Previous output segment
 int	reglock;		// Register locked by 'register' vars
 int	regsum;			// Summary of all used registers
 int	reguse;			// Currently used registers
 int	regresvd;		// reserved registers
-int	skiplevel;		// level at which #if skipping starts
 int	sw[SWMAX*SLAST];
 int	swinx;			// Position in switch table
 int	symidx;			// Next free identifier
@@ -233,7 +221,6 @@ int	verbose;		// Verbose -v specified
 
 char	ch;			// Current character in line being scanned
 char	ctype[256];		// character properties
-char	incfn[PATHMAX];		// include filename
 char	inpfn[PATHMAX];		// input filename
 char	*lptr;			// Pointer to current character in input buffer
 char	namech[NAMEMAX];
@@ -846,11 +833,9 @@ loadlval(register int lval[], register int reg) {
 		lval[LTYPE] = ADDRESS;
 		lval[LPTR] = 0; // ??
 		lval[LSIZE] = 0; // ??
-		lval[LEA] = EA_ADDR; // remove
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = reg;
-//		lval[LTRUE] = lval[LFALSE] = 0;
 	} else if (lval[LTYPE] == BRANCH) {
 		int lblX;
 		lblX = ++nxtlabel;
@@ -870,18 +855,16 @@ loadlval(register int lval[], register int reg) {
 
 		lval[LTYPE] = ADDRESS;
 		lval[LPTR] = 0;
-		lval[LEA] = EA_ADDR;
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = reg;
-	} else if (lval[LEA] == EA_IND) {
+	} else if (lval[LTYPE] == MEMORY) {
 		freelval(lval);
 		if (reg <= 0)
 			reg = allocreg();
 		gencode_lval(isWORD(lval) ? TOK_LDW : TOK_LDB, reg, lval);
 
 		lval[LTYPE] = ADDRESS;
-		lval[LEA] = EA_ADDR;
 		// NOTE: lval[LPTR] can be non-zero
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
@@ -893,7 +876,6 @@ loadlval(register int lval[], register int reg) {
 		gencode_lval(TOK_LDA, reg, lval);
 
 		lval[LTYPE] = ADDRESS;
-		lval[LEA] = EA_ADDR;
 		lval[LPTR] = 0;
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
@@ -934,7 +916,6 @@ doasm(register int lval[]) {
 	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
 	lval[LSIZE] = BPW;
-	lval[LEA] = EA_ADDR;
 	lval[LNAME] = 0;
 	lval[LVALUE] = 0;
 	lval[LREG] = REG_RETURN;
@@ -976,7 +957,6 @@ constant(register int lval[]) {
 	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
 	lval[LSIZE] = 0;
-	lval[LEA] = EA_ADDR;
 	lval[LNAME] = 0;
 	lval[LVALUE] = 0;
 	lval[LREG] = 0;
@@ -1025,7 +1005,6 @@ constant(register int lval[]) {
 	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
 	lval[LSIZE] = 1;
-	lval[LEA] = EA_ADDR;
 	lval[LNAME] = -lbl;
 	lval[LVALUE] = 0;
 	lval[LREG] = 0;
@@ -1069,12 +1048,6 @@ primary(register int lval[]) {
 			lval[LVALUE] = sym[IVALUE];
 			lval[LREG] = sym[IREG];
 
-			if (sym[ICLASS] == CONSTANT || sym[ITYPE] == ADDRESS || sym[ICLASS] == REGISTER) {
-				lval[LEA] = EA_ADDR;
-			} else {
-				lval[LEA] = EA_IND;
-			}
-
 			return 1;
 		}
 	}
@@ -1085,7 +1058,6 @@ primary(register int lval[]) {
 		lval[LTYPE] = ADDRESS;
 		lval[LPTR] = 0;
 		lval[LSIZE] = BPW;
-		lval[LEA] = EA_ADDR;
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = allocreg();
@@ -1106,7 +1078,6 @@ primary(register int lval[]) {
 	lval[LTYPE] = FUNCTION;
 	lval[LPTR] = 0;
 	lval[LSIZE] = BPW;
-	lval[LEA] = EA_ADDR;
 	lval[LNAME] = sname;
 	lval[LVALUE] = 0;
 	lval[LREG] = 0;
@@ -1178,14 +1149,13 @@ step(register int pre, register int lval[], register int post) {
 	int dest[LLAST];
 	register int reg;
 
-	if (!isRegister(lval) && lval[LTYPE] != VARIABLE)
+	if (!isRegister(lval) && lval[LTYPE] != MEMORY)
 		error("non-modifiable variable");
 
 	// Copy lval
 	dest[LTYPE] = lval[LTYPE];
 	dest[LPTR] = lval[LPTR];
 	dest[LSIZE] = lval[LSIZE];
-	dest[LEA] = lval[LEA];
 	dest[LNAME] = lval[LNAME];
 	dest[LVALUE] = lval[LVALUE];
 	dest[LREG] = lval[LREG];
@@ -1227,13 +1197,13 @@ expr_postfix(register int lval[]) {
 			error("need subscript");
 		else {
 			if (isConstant(lval2)) {
-				if (lval[LEA] == EA_IND)
+				if (lval[LTYPE] == MEMORY)
 					loadlval(lval, 0); // load if pointer
 				// Subscript is a constant
 				lval[LVALUE] += lval2[LVALUE] * lval[LSIZE];
 			} else {
 				// Subscript is a variable/complex-expression
-				if (lval[LEA] == EA_IND)
+				if (lval[LTYPE] == MEMORY)
 					loadlval(lval, 0); // load if pointer
 				loadlval(lval2, 0);
 				if (lval[LSIZE] == BPW)
@@ -1259,10 +1229,8 @@ expr_postfix(register int lval[]) {
 				}
 			}
 			// Update data type
-			if (lval[LTYPE] == ADDRESS)
-				lval[LTYPE] = VARIABLE; // address->memory with unchanged type. "int *arr[n]" -> "int* element"
+			lval[LTYPE] = MEMORY;
 			lval[LPTR]--; // deference pointer
-			lval[LEA] = EA_IND;
 		}
 		needtoken("]");
 	}
@@ -1283,7 +1251,7 @@ expr_postfix(register int lval[]) {
 					loadlval(lval2, 0);
 				freelval(lval2);
 				// Push onto stack
-				if (lval2[LEA] != EA_IND)
+				if (lval2[LTYPE] != MEMORY)
 					gencode_lval(TOK_PSHA, -1, lval2);
 				else
 					gencode_lval(isWORD(lval2) ? TOK_PSHW : TOK_PSHB, -1, lval2);
@@ -1312,7 +1280,6 @@ expr_postfix(register int lval[]) {
 		lval[LTYPE] = ADDRESS;
 		lval[LPTR] = 0;
 		lval[LSIZE] = BPW;
-		lval[LEA] = EA_ADDR;
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = REG_RETURN;
@@ -1399,14 +1366,12 @@ expr_unary(register int lval[]) {
 		if (!lval[LPTR])
 			error("can't dereference");
 		else {
-			if (lval[LEA] == EA_IND)
+			if (lval[LTYPE] == MEMORY)
 				loadlval(lval, 0); // load if pointer
 
 			// Update data type
-			if (lval[LTYPE] == ADDRESS)
-				lval[LTYPE] = VARIABLE; // address->memory with unchanged type. "int *arr[n]" -> "int* element"
+			lval[LTYPE] = MEMORY;
 			lval[LPTR]--; // deference pointer
-			lval[LEA] = EA_IND;
 		}
 
 		return 1;
@@ -1415,12 +1380,11 @@ expr_unary(register int lval[]) {
 			exprerr();
 			return 0;
 		}
-		if (lval[LTYPE] == ADDRESS || lval[LEA] != EA_IND || isConstant(lval)  || lval[LTYPE] == BRANCH)
+		if (lval[LTYPE] != MEMORY)
 			error("Illegal address");
 		else {
 			lval[LTYPE] = ADDRESS;
 			lval[LPTR]++;
-			lval[LEA] = EA_ADDR;
 		}
 	} else {
 		if (!expr_postfix(lval))
@@ -1854,7 +1818,6 @@ expr_ternary(register int lval[]) {
 	// resulting type is undefined, so modify LTYPE
 	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
-	lval[LEA] = EA_ADDR;
 
 	return 1;
 }
@@ -1885,7 +1848,7 @@ expr_assign(register int lval[]) {
 		return 1;
 
 	// test if lval modifiable
-	if (!isRegister(lval) && lval[LTYPE] != VARIABLE)
+	if (!isRegister(lval) && lval[LTYPE] != MEMORY)
 		error("non-modifiable variable");
 
 	// Get rval
@@ -1909,7 +1872,6 @@ expr_assign(register int lval[]) {
 		dest[LTYPE] = lval[LTYPE];
 		dest[LPTR] = lval[LPTR];
 		dest[LSIZE] = lval[LSIZE];
-		dest[LEA] = lval[LEA];
 		dest[LNAME] = lval[LNAME];
 		dest[LVALUE] = lval[LVALUE];
 		dest[LREG] = lval[LREG];
@@ -1927,7 +1889,6 @@ expr_assign(register int lval[]) {
 	// resulting type is undefined, so modify LTYPE
 	lval[LTYPE] = ADDRESS;
 	lval[LPTR] = 0;
-	lval[LEA] = EA_ADDR;
 
 	return 1;
 }
@@ -2336,7 +2297,7 @@ dump_ident(int ident[]) {
 		classnames[7] = "REGISTER";
 		typenames[0] = "0";
 		typenames[1] = "ADDRESS";
-		typenames[2] = "VARIABLE";
+		typenames[2] = "MEMORY";
 		typenames[3] = "FUNCTION";
 		typenames[4] = "BRANCH";
 	}
@@ -2453,12 +2414,10 @@ declvar(int scope, register int clas) {
 			}
 		}
 
-		type = VARIABLE;
+		type = MEMORY;
 
 		cnt = 1; // Number of elements
 		if (match("[")) {
-			if (type != VARIABLE)
-				error("array type not supported");
 			if (clas == REGISTER)
 				error("register array not supported");
 
@@ -2584,15 +2543,12 @@ declarg(int scope, register int clas, register int argnr) {
 			}
 		}
 
-		type = VARIABLE;
+		type = MEMORY;
 
 		if (match("[")) {
 			if (ptr)
 				error("array of pointers not supported");
-			if (type != VARIABLE)
-				error("array type not supported");
 
-			type = VARIABLE;
 			ptr = 1; // address of array (passed as argument) is pushed on stack
 
 			// get number of elements
