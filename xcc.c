@@ -99,7 +99,7 @@ enum {
 	ISYM = 0,		// identifier/symbol name
 	ICLASS,			// storage class
 	ITYPE,			// peephole data type
-	IPTR,			// part of ISIZE. 1="*name" 2="(*name)"
+	IPTR,			// Number of indirects to basetype
 	ISIZE,			// size in bytes.
 	INAME,			// EA name
 	IVALUE,			// EA value/offset
@@ -1358,7 +1358,7 @@ expr_unary(register int lval[]) {
 			return 0;
 		}
 		if (lval[LTYPE] != MEMORY)
-			error("Illegal address");
+			expected("lvalue");
 		else {
 			lval[LTYPE] = ADDRESS;
 			++lval[LPTR];
@@ -1902,7 +1902,7 @@ constexpr(register int *val) {
 		*val = lval[LVALUE];
 		return 1;
 	}
-	error("must be a constant expression");
+	expected("constant expression");
 	freelval(lval);
 	return 0;
 }

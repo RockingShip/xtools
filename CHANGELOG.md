@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [Release 2.1.0] 2020-06-04 12:44:07
+
+Simplified and bugfixed `sym[]` (identifier) and `lval[]` (peephole) structures.
+More flexible pointer depth.
+Dropped preprocessor and pointers to functions. 
+
 ```
 2020-06-04 12:19:44 Lost+Found.
                     After syncing with `xtools-historic 1.4.0`
@@ -44,4 +50,5 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 Initial commit.
 
-[Unreleased]: /RockingShip/xtools-historic/compare/v2.0.0...HEAD
+[Unreleased]: /RockingShip/xtools/compare/v2.1.0...HEAD
+[2.1.0]: /RockingShip/xtools-historic/compare/v2.0.0...v2.1.0
