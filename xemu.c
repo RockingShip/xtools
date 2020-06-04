@@ -806,8 +806,8 @@ void run(uint16_t inisp) {
 /**********************************************************************/
 
 /*
-** Execution starts here
-*/
+ * Program start
+ */
 int main(int argc, char **argv) {
 	int fd;
 	uint16_t inisp;

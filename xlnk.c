@@ -1426,7 +1426,7 @@ startup(register int *argv) {
 }
 
 /*
- * Execution starts here
+ * Program start
  */
 main(int argc, int *argv) {
 	register int i, j, *p, len;

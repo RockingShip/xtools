@@ -245,7 +245,7 @@ char	outfn[PATHMAX];		// output filename
 char	sbuf[SBUFMAX];
 
 //exit(int code);
-//expression(int lval[], int comma);
+//expression(int lval[]);
 //fclose(int hdl);
 //fgets(char *str, int siz, int hdl);
 //fopen(char *name, char *mode);

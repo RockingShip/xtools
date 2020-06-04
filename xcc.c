@@ -236,7 +236,7 @@ char	outfn[PATHMAX];		// output filename
 char	sbuf[SBUFMAX];
 
 //exit(int code);
-//expression(int lval[], int comma);
+//expression(int lval[]);
 //fclose(int hdl);
 //fgets(char *str, int siz, int hdl);
 //fopen(char *name, char *mode);
@@ -794,9 +794,7 @@ loadlval(register int lval[], register int reg) {
 	// Sign extend to fix being called with negative constant when copiled with "-Dint=long"
 	reg |= -(reg & (1 << SBIT));
 
-	if (lval[LTYPE] == FUNCTION) {
-		error("Invalid function use");
-	} else if (lval[LTYPE] == ADDRESS) {
+	if (lval[LTYPE] == ADDRESS) {
 		// try to relocate offset to register
 		if (lval[LREG] == 0) {
 			if (lval[LVALUE] == 1) {
@@ -812,7 +810,7 @@ loadlval(register int lval[], register int reg) {
 		if (reg > 0) {
 			// loaded into fixed register
 			freelval(lval);
-		} else 	if (lval[LNAME] || lval[LVALUE]) {
+		} else if (lval[LNAME] || lval[LVALUE]) {
 			// need code to evaluate, result always in new register
 			freelval(lval);
 			reg = allocreg();
@@ -838,8 +836,16 @@ loadlval(register int lval[], register int reg) {
 
 		// Modify lval
 		lval[LTYPE] = ADDRESS;
-		lval[LPTR] = 0; // ??
-		lval[LSIZE] = 0; // ??
+		lval[LNAME] = 0;
+		lval[LVALUE] = 0;
+		lval[LREG] = reg;
+	} else if (lval[LTYPE] == MEMORY) {
+		freelval(lval);
+		if (reg <= 0)
+			reg = allocreg();
+		gencode_lval(isWORD(lval) ? TOK_LDW : TOK_LDB, reg, lval);
+
+		lval[LTYPE] = ADDRESS;
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = reg;
@@ -865,38 +871,8 @@ loadlval(register int lval[], register int reg) {
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = reg;
-	} else if (lval[LTYPE] == MEMORY) {
-		freelval(lval);
-		if (reg <= 0)
-			reg = allocreg();
-		gencode_lval(isWORD(lval) ? TOK_LDW : TOK_LDB, reg, lval);
-
-		lval[LTYPE] = ADDRESS;
-		// NOTE: lval[LPTR] can be non-zero
-		lval[LNAME] = 0;
-		lval[LVALUE] = 0;
-		lval[LREG] = reg;
-	} else if (!isRegister(lval)) {
-		freelval(lval);
-		if (reg <= 0)
-			reg = allocreg();
-		gencode_lval(TOK_LDA, reg, lval);
-
-		lval[LTYPE] = ADDRESS;
-		lval[LPTR] = 0;
-		lval[LNAME] = 0;
-		lval[LVALUE] = 0;
-		lval[LREG] = reg;
-	} else if (((reg > 0) && (lval[LREG] != reg)) ||
-		   (regresvd & (1 << lval[LREG])) ||
-		   ((reg != -1) && (reglock & (1 << lval[LREG])))) {
-		freelval(lval);
-		if (reg <= 0)
-			reg = allocreg();
-		gencode_R(TOK_LDR, reg, lval[LREG]);
-
-		lval[LREG] = reg;
-	}
+	} else
+		error("unimplemented");
 }
 
 /*
@@ -1010,12 +986,11 @@ constant(register int lval[]) {
 
 	// Convert to array of char
 	lval[LTYPE] = ADDRESS;
-	lval[LPTR] = 0;
+	lval[LPTR] = 1;
 	lval[LSIZE] = 1;
 	lval[LNAME] = -lbl;
 	lval[LVALUE] = 0;
 	lval[LREG] = 0;
-	lval[LTRUE] = lval[LFALSE] = 0;
 
 	return 1;
 }
@@ -1028,7 +1003,7 @@ primary(register int lval[]) {
 	int sname, len;
 
 	if (match("(")) {  // (expression,...)
-		expression(lval, 1);
+		expression(lval);
 		needtoken(")");
 		return 1;
 	}
@@ -1157,7 +1132,7 @@ step(register int pre, register int lval[], register int post) {
 	register int reg;
 
 	if (!isRegister(lval) && lval[LTYPE] != MEMORY)
-		error("non-modifiable variable");
+		expected("lvalue");
 
 	// Copy lval
 	dest[LTYPE] = lval[LTYPE];
@@ -1200,7 +1175,7 @@ expr_postfix(register int lval[]) {
 	if (match("[")) { // [subscript]
 		if (!lval[LPTR])
 			error("can't subscript");
-		else if (!expression(lval2, 0))
+		else if (!expression(lval2))
 			error("need subscript");
 		else {
 			if (isConstant(lval2)) {
@@ -1250,7 +1225,7 @@ expr_postfix(register int lval[]) {
 		blanks();
 		while (ch != ')') {
 			// Get expression
-			expression(lval2, 0);
+			expr_assign(lval2);
 			if (isConstant(lval2)) {
 				gencode_I(TOK_PSHA, -1, lval2[LVALUE]);
 			} else {
@@ -1369,19 +1344,14 @@ expr_unary(register int lval[]) {
 			exprerr();
 			return 0;
 		}
-
 		if (!lval[LPTR])
 			error("can't dereference");
 		else {
 			if (lval[LTYPE] == MEMORY)
 				loadlval(lval, 0); // load if pointer
-
-			// Update data type
 			lval[LTYPE] = MEMORY;
 			--lval[LPTR]; // deference pointer
 		}
-
-		return 1;
 	} else if (match("&")) {
 		if (!expr_unary(lval)) {
 			exprerr();
@@ -1805,7 +1775,7 @@ expr_ternary(register int lval[]) {
 	gencode_L(lval[LVALUE], lfalse);
 	if (lval[LTRUE])
 		fprintf(outhdl, "_%d:", lval[LTRUE]);
-	expression(lval, 1);
+	expression(lval);
 	loadlval(lval, reg = allocreg()); // Needed to assign a dest reg
 
 	needtoken(":");
@@ -1815,7 +1785,7 @@ expr_ternary(register int lval[]) {
 
 	// process 'false' variant
 	fprintf(outhdl, "_%d:", lfalse);
-	if (!expr_assign(lval))
+	if (!expr_ternary(lval))
 		exprerr();
 	else
 		loadlval(lval, reg); // Needed for result to occupy same reg
@@ -1856,7 +1826,7 @@ expr_assign(register int lval[]) {
 
 	// test if lval modifiable
 	if (!isRegister(lval) && lval[LTYPE] != MEMORY)
-		error("non-modifiable variable");
+		expected("lvalue");
 
 	// Get rval
 	if (!expr_assign(rval)) {
@@ -1870,7 +1840,9 @@ expr_assign(register int lval[]) {
 			gencode_R(TOK_LDR, lval[LREG], rval[LREG]);
 		else
 			gencode_lval(isWORD(lval) ? TOK_STW : TOK_STB, rval[LREG], lval);
+		// continue with value stored in register `rval[LREG]`
 		freelval(lval);
+		lval[LTYPE] = ADDRESS;
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
 		lval[LREG] = rval[LREG];
@@ -1887,15 +1859,12 @@ expr_assign(register int lval[]) {
 		loadlval(lval, allocreg()); // don't reuse regs for dest
 		gencode_R(oper, lval[LREG], rval[LREG]);
 		freelval(rval);
+		// write-back
 		if (isRegister(dest))
 			gencode_R(TOK_LDR, dest[LREG], lval[LREG]);
 		else
 			gencode_lval(isWORD(lval) ? TOK_STW : TOK_STB, lval[LREG], dest);
 	}
-
-	// resulting type is undefined, so modify LTYPE
-	lval[LTYPE] = ADDRESS;
-	lval[LPTR] = 0;
 
 	return 1;
 }
@@ -1903,18 +1872,18 @@ expr_assign(register int lval[]) {
 /*
  * Load a numerical expression separated by comma's
  */
-expression(register int lval[], int comma) {
+expression(register int lval[]) {
 
 	if (!expr_assign(lval)) {
 		expected("expression");
 		return 0;
 	}
 
-	while (comma && match(",")) {
+	while (match(",")) {
 		freelval(lval);
 		if (!expr_assign(lval)) {
 			expected("expression");
-			return 0;
+			return 1;
 		}
 	}
 
@@ -1927,7 +1896,7 @@ expression(register int lval[], int comma) {
 constexpr(register int *val) {
 	int lval[LLAST];
 
-	if (!expr_assign(lval))
+	if (!expr_ternary(lval))
 		return 0;
 	if (isConstant(lval)) {
 		*val = lval[LVALUE];
@@ -2059,7 +2028,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 
 	if (amatch("if")) {
 		needtoken("(");
-		expression(lval, 1);
+		expression(lval);
 		needtoken(")");
 		if (lval[LTYPE] == BRANCH) {
 			if (!lval[LFALSE])
@@ -2104,7 +2073,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		lbl1 = ++nxtlabel;
 		fprintf(outhdl, "_%d:", lbl1);
 		needtoken("(");
-		expression(lval, 1);
+		expression(lval);
 		needtoken(")");
 
 		if (lval[LTYPE] == BRANCH) {
@@ -2136,7 +2105,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		fprintf(outhdl, "_%d:", lbl2);
 		needtoken("while");
 		needtoken("(");
-		expression(lval, 1);
+		expression(lval);
 		needtoken(")");
 		if (lval[LTYPE] == BRANCH) {
 			if (lval[LTRUE])
@@ -2166,14 +2135,14 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		needtoken("(");
 		blanks();
 		if (ch != ';') {
-			expression(lval, 1);
+			expression(lval);
 			freelval(lval);
 		}
 		needtoken(";");
 		fprintf(outhdl, "_%d:", lbl1);
 		blanks();
 		if (ch != ';') {
-			expression(lval, 1);
+			expression(lval);
 			if (lval[LTYPE] == BRANCH) {
 				if (!lval[LFALSE])
 					lval[LFALSE] = ++nxtlabel;
@@ -2193,7 +2162,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		fprintf(outhdl, "_%d:", lbl2);
 		blanks();
 		if (ch != ')') {
-			expression(lval, 1);
+			expression(lval);
 			freelval(lval);
 		}
 		gencode_L(TOK_JMP, lbl1);
@@ -2204,7 +2173,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		fprintf(outhdl, "_%d:", lval[LFALSE]);
 	} else if (amatch("switch")) {
 		needtoken("(");
-		expression(lval, 1);
+		expression(lval);
 		needtoken(")");
 		loadlval(lval, REG_RETURN);
 		lbl1 = ++nxtlabel;
@@ -2248,7 +2217,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 	} else if (amatch("return")) {
 		if (!match(";")) {
 			// generate a return value in R1
-			expression(lval, 1);
+			expression(lval);
 			loadlval(lval, REG_RETURN);
 			semicolon();
 		}
@@ -2274,7 +2243,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 	} else if (ch != ';') {
 		int r;
 		r = reguse;
-		expression(lval, 1);
+		expression(lval);
 		freelval(lval);
 		if (r != reguse)
 			fatal("register leak");
@@ -2365,12 +2334,8 @@ declenum(int scope) {
 		sym[IREG] = 0;
 
 		if (match("=")) {
-			expression(lval, 0);
-			if (!isConstant(lval)) {
-				expected("constant");
-				return;
-			}
-			seqnr = lval[LVALUE];
+			if (!constexpr(&seqnr))
+				expected("constant expected");
 		}
 
 		sym[IVALUE] = seqnr++;
@@ -2554,6 +2519,8 @@ declarg(int scope, register int clas, register int argnr) {
 		if (match("[")) {
 			if (ptr)
 				error("array of pointers not supported");
+			if (type != MEMORY)
+				error("array type not supported");
 
 			ptr = 1; // address of array (passed as argument) is pushed on stack
 
@@ -2677,15 +2644,15 @@ declfunc(int clas) {
 	for (i = scope + 1; i < symidx; ++i) {
 		sym = &syms[i * ILAST];
 
-		// tweak ap offsets
+		// tweak AP offsets
 		sym[IVALUE] += numarg * BPW;
 
-		// generate code for register variables
+		// generate code for register parameters
 		if (sym[ICLASS] == REGISTER) {
 			int reg;
 			reg = allocreg();
 			reglock |= (1 << reg);
-			gencode_M(((sym[ISIZE] == BPW) || sym[IPTR]) ? TOK_LDW : TOK_LDB, reg, sym[INAME], sym[IVALUE], sym[IREG]);
+			gencode_M((sym[ISIZE] == BPW || sym[IPTR]) ? TOK_LDW : TOK_LDB, reg, sym[INAME], sym[IVALUE], sym[IREG]);
 			sym[ITYPE] = ADDRESS;
 			sym[INAME] = 0;
 			sym[IVALUE] = 0;

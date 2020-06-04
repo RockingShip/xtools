@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-04 12:19:44 Lost+Found.
+                    After syncing with `xtools-historic 1.4.0`
 2020-06-02 15:59:42 Synced post-increments to pre-increments.
                     And other tweaks that generate better. 
                     More optimal coding.
