@@ -2558,7 +2558,7 @@ declarg(int scope, register int clas, register int argnr) {
  *
  */
 declfunc(int clas) {
-	int returnlbl, len, sname, lbl1, lbl2, inireg, sav_argc, scope;
+	int returnlbl, len, sname, inireg, sav_argc, scope, pshrlbl;
 	register int *sym, i, numarg;
 
 	returnlbl = ++nxtlabel;
@@ -2605,9 +2605,8 @@ declfunc(int clas) {
 	symname(sname);
 	fprintf(outhdl, "::");
 	gencode_R(TOK_LDR, REG_RETURN, REG_SP);
-	lbl1 = ++nxtlabel;
-	fprintf(outhdl, "_%d:", lbl1);
-	gencode_I(TOK_PSHR, -1, 0);
+	pshrlbl = ++nxtlabel;
+	gencode_M(TOK_PSHR, -1, -pshrlbl, 0, 0);
 	gencode_R(TOK_LDR, REG_AP, 1);
 
 	// get parameters
@@ -2667,11 +2666,7 @@ declfunc(int clas) {
 		error("internal error. registers not unlocked");
 
 	// trailing statements
-	lbl2 = ++nxtlabel;
-	fprintf(outhdl, "_%d:\t.ORG\t_%d\n", lbl2, lbl1);
-	gencode_I(TOK_PSHR, -1, regsum);
-	fprintf(outhdl, "\t.ORG\t_%d\n", lbl2);
-	fprintf(outhdl, "_%d:", returnlbl);
+	fprintf(outhdl, "_%d:\t_%d=%d\n", returnlbl, pshrlbl, regsum);
 	gencode_I(TOK_POPR, -1, regsum);
 	gencode(TOK_RSB);
 

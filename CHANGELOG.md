@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-04 23:06:18 `pshr/popr` pair uses assembler "=" instread of ".org".
 2020-06-04 22:40:44 Lowercase assembler.
 ```
 
