@@ -560,13 +560,13 @@ toseg(register int newseg) {
 	if (currseg == newseg)
 		return 0;
 	if (newseg == CODESEG)
-		fprintf(outhdl, "\t.CODE\n");
+		fprintf(outhdl, "\t.code\n");
 	else if (newseg == DATASEG)
-		fprintf(outhdl, "\t.DATA\n");
+		fprintf(outhdl, "\t.data\n");
 	else if (newseg == TEXTSEG)
-		fprintf(outhdl, "\t.TEXT\n");
+		fprintf(outhdl, "\t.text\n");
 	else if (newseg == UDEFSEG)
-		fprintf(outhdl, "\t.UDEF\n");
+		fprintf(outhdl, "\t.udef\n");
 	currseg = newseg;
 }
 
@@ -575,44 +575,41 @@ toseg(register int newseg) {
  */
 genopc(int opc) {
 	switch (opc) {
-	case TOK_ILLEGAL: fprintf(outhdl, "\tILLEGAL\t"); break;
-	case TOK_ADD : fprintf(outhdl, "\tADD\t"); break;
-	case TOK_SUB : fprintf(outhdl, "\tSUB\t"); break;
-	case TOK_MUL : fprintf(outhdl, "\tMUL\t"); break;
-	case TOK_DIV : fprintf(outhdl, "\tDIV\t"); break;
-	case TOK_MOD : fprintf(outhdl, "\tMOD\t"); break;
-	case TOK_OR  : fprintf(outhdl, "\tOR\t"); break;
-	case TOK_XOR : fprintf(outhdl, "\tXOR\t"); break;
-	case TOK_AND : fprintf(outhdl, "\tAND\t"); break;
-	case TOK_LSR : fprintf(outhdl, "\tLSR\t"); break;
-	case TOK_LSL : fprintf(outhdl, "\tLSL\t"); break;
-	case TOK_NEG : fprintf(outhdl, "\tNEG\t"); break;
-	case TOK_NOT : fprintf(outhdl, "\tNOT\t"); break;
-	case TOK_BEQ  : fprintf(outhdl, "\tBEQ\t"); break;
-	case TOK_BNE  : fprintf(outhdl, "\tBNE\t"); break;
-	case TOK_BLT  : fprintf(outhdl, "\tBLT\t"); break;
-	case TOK_BLE  : fprintf(outhdl, "\tBLE\t"); break;
-	case TOK_BGT  : fprintf(outhdl, "\tBGT\t"); break;
-	case TOK_BGE  : fprintf(outhdl, "\tBGE\t"); break;
-	case TOK_LDB: fprintf(outhdl, "\tLDB\t"); break;
-	case TOK_LDW: fprintf(outhdl, "\tLDW\t"); break;
-	case TOK_LDR: fprintf(outhdl, "\tLDR\t"); break;
-	case TOK_LDA : fprintf(outhdl, "\tLDA\t"); break;
-	case TOK_CMP : fprintf(outhdl, "\tCMP\t"); break;
-	case TOK_TST : fprintf(outhdl, "\tTST\t"); break;
-	case TOK_STB: fprintf(outhdl, "\tSTB\t"); break;
-	case TOK_STW: fprintf(outhdl, "\tSTW\t"); break;
-	case TOK_JMP : fprintf(outhdl, "\tJMP\t"); break;
-	case TOK_JSB : fprintf(outhdl, "\tJSB\t"); break;
-	case TOK_RSB : fprintf(outhdl, "\tRSB\t"); break;
-	case TOK_PSHB: fprintf(outhdl, "\tPSHB\t"); break;
-	case TOK_PSHW: fprintf(outhdl, "\tPSHW\t"); break;
-	case TOK_PSHA: fprintf(outhdl, "\tPSHA\t"); break;
-	case TOK_PSHR: fprintf(outhdl, "\tPSHR\t"); break;
-	case TOK_POPR: fprintf(outhdl, "\tPOPR\t"); break;
-	default:
-		fprintf(outhdl, "\tTOK_%d\t", opc);
-		break;
+	case TOK_ILLEGAL: fprintf(outhdl, "\tillegal\t"); break;
+	case TOK_ADD : fprintf(outhdl, "\tadd\t"); break;
+	case TOK_SUB : fprintf(outhdl, "\tsub\t"); break;
+	case TOK_MUL : fprintf(outhdl, "\tmul\t"); break;
+	case TOK_DIV : fprintf(outhdl, "\tdiv\t"); break;
+	case TOK_MOD : fprintf(outhdl, "\tmod\t"); break;
+	case TOK_OR  : fprintf(outhdl, "\tor\t"); break;
+	case TOK_XOR : fprintf(outhdl, "\txor\t"); break;
+	case TOK_AND : fprintf(outhdl, "\tand\t"); break;
+	case TOK_LSR : fprintf(outhdl, "\tlsr\t"); break;
+	case TOK_LSL : fprintf(outhdl, "\tlsl\t"); break;
+	case TOK_NEG : fprintf(outhdl, "\tneg\t"); break;
+	case TOK_NOT : fprintf(outhdl, "\tnot\t"); break;
+	case TOK_BEQ  : fprintf(outhdl, "\tbeq\t"); break;
+	case TOK_BNE  : fprintf(outhdl, "\tbne\t"); break;
+	case TOK_BLT  : fprintf(outhdl, "\tblt\t"); break;
+	case TOK_BLE  : fprintf(outhdl, "\tble\t"); break;
+	case TOK_BGT  : fprintf(outhdl, "\tbgt\t"); break;
+	case TOK_BGE  : fprintf(outhdl, "\tbge\t"); break;
+	case TOK_LDB: fprintf(outhdl, "\tldb\t"); break;
+	case TOK_LDW: fprintf(outhdl, "\tldw\t"); break;
+	case TOK_LDR: fprintf(outhdl, "\tldr\t"); break;
+	case TOK_LDA : fprintf(outhdl, "\tlda\t"); break;
+	case TOK_CMP : fprintf(outhdl, "\tcmp\t"); break;
+	case TOK_TST : fprintf(outhdl, "\ttst\t"); break;
+	case TOK_STB: fprintf(outhdl, "\tstb\t"); break;
+	case TOK_STW: fprintf(outhdl, "\tstw\t"); break;
+	case TOK_JMP : fprintf(outhdl, "\tjmp\t"); break;
+	case TOK_JSB : fprintf(outhdl, "\tjsb\t"); break;
+	case TOK_RSB : fprintf(outhdl, "\trsb\t"); break;
+	case TOK_PSHB: fprintf(outhdl, "\tpshb\t"); break;
+	case TOK_PSHW: fprintf(outhdl, "\tpshw\t"); break;
+	case TOK_PSHA: fprintf(outhdl, "\tpsha\t"); break;
+	case TOK_PSHR: fprintf(outhdl, "\tpshr\t"); break;
+	case TOK_POPR: fprintf(outhdl, "\tpopr\t"); break;
 	}
 }
 
@@ -635,8 +632,8 @@ gencode_R(int opc, int lreg, int rreg) {
 	genopc(opc);
 
 	if (lreg >= 0)
-		fprintf(outhdl, "R%d,", lreg);
-	fprintf(outhdl, "R%d\n", rreg);
+		fprintf(outhdl, "r%d,", lreg);
+	fprintf(outhdl, "r%d\n", rreg);
 }
 
 gencode_I(int opc, int lreg, int imm) {
@@ -647,7 +644,7 @@ gencode_I(int opc, int lreg, int imm) {
 	genopc(opc);
 
 	if (lreg >= 0)
-		fprintf(outhdl, "R%d,", lreg);
+		fprintf(outhdl, "r%d,", lreg);
 	fprintf(outhdl, "%d\n", imm);
 }
 
@@ -656,11 +653,11 @@ gencode_ADJSP(int imm) {
 	imm |= -(imm & (1 << SBIT));
 
 	if (imm == BPW)
-		fprintf(outhdl, "\tADD\tR%d,R%d\n", REG_SP, REG_BPW);
+		fprintf(outhdl, "\tadd\tr%d,r%d\n", REG_SP, REG_BPW);
 	else if (imm == -BPW)
-		fprintf(outhdl, "\tSUB\tR%d,R%d\n", REG_SP, REG_BPW);
+		fprintf(outhdl, "\tsub\tr%d,r%d\n", REG_SP, REG_BPW);
 	else
-		fprintf(outhdl, "\tLDA\tR%d,%d(R%d)\n", REG_SP, imm, REG_SP);
+		fprintf(outhdl, "\tlda\tr%d,%d(r%d)\n", REG_SP, imm, REG_SP);
 }
 
 gencode_M(int opc, int lreg, int name, int ofs, int rreg) {
@@ -672,7 +669,7 @@ gencode_M(int opc, int lreg, int name, int ofs, int rreg) {
 	genopc(opc);
 
 	if (lreg >= 0)
-		fprintf(outhdl, "R%d,", lreg);
+		fprintf(outhdl, "r%d,", lreg);
 
 	if (name) {
 		if (name > 0){
@@ -687,7 +684,7 @@ gencode_M(int opc, int lreg, int name, int ofs, int rreg) {
 	else if (ofs < 0)
 		fprintf(outhdl, "%d", ofs);
 	if (rreg)
-		fprintf(outhdl, "(R%d)", rreg);
+		fprintf(outhdl, "(r%d)", rreg);
 
 	fprintf(outhdl, "\n");
 }
@@ -969,7 +966,7 @@ constant(register int lval[]) {
 	prevseg = currseg;
 
 	toseg(TEXTSEG);
-	fprintf(outhdl, "_%d:\t.DCB\t\"", lbl);
+	fprintf(outhdl, "_%d:\t.dcb\t\"", lbl);
 
 	while (ch && (ch != '"')) {
 		if (ch == '\\') {
@@ -1952,7 +1949,7 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 			}
 		}
 		if (!cnt++)
-			fprintf(outhdl, "\t.DCW\t_%d", lbl);
+			fprintf(outhdl, "\t.dcw\t_%d", lbl);
 		else
 			fprintf(outhdl, ",_%d", lbl);
 		if (cnt > 15) {
@@ -2454,14 +2451,14 @@ declvar(int scope, register int clas) {
 
 			if (type == ADDRESS) {
 				if (ptr <= 1 && size == 1)
-					fprintf(outhdl, "\t.DSB\t%d\n", cnt);
+					fprintf(outhdl, "\t.dsb\t%d\n", cnt);
 				else
-					fprintf(outhdl, "\t.DSW\t%d\n", cnt);
+					fprintf(outhdl, "\t.dsw\t%d\n", cnt);
 			} else {
 				if (!ptr && size == 1)
-					fprintf(outhdl, "\t.DSB\t1\n");
+					fprintf(outhdl, "\t.dsb\t1\n");
 				else
-					fprintf(outhdl, "\t.DSW\t1\n");
+					fprintf(outhdl, "\t.dsw\t1\n");
 			}
 		}
 		dump_ident(sym);
@@ -2869,7 +2866,7 @@ main(int argc, int *argv) {
 	toseg(CODESEG); // setup initial segment
 	parse(); // GO !!!
 
-	fprintf(outhdl, "\t.END\n");
+	fprintf(outhdl, "\t.end\n");
 
 	j = 0;
 	for (i = 0; i < NAMEMAX; ++i) if (namech[i]) ++j;

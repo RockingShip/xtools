@@ -718,61 +718,61 @@ sto_cmd(int cmd, int val) {
 			}
 		else {
 			switch (cmd) {
-			case REL_END: fprintf(outhdl, "END\n", val); break;
-			case REL_ADD: fprintf(outhdl, "ADD\n"); break;
-			case REL_SUB: fprintf(outhdl, "SUB\n"); break;
-			case REL_MUL: fprintf(outhdl, "MUL\n"); break;
-			case REL_DIV: fprintf(outhdl, "DIV\n"); break;
-			case REL_MOD: fprintf(outhdl, "MOD\n"); break;
-			case REL_LSR: fprintf(outhdl, "LSR\n"); break;
-			case REL_LSL: fprintf(outhdl, "LSL\n"); break;
-			case REL_AND: fprintf(outhdl, "AND\n"); break;
-			case REL_OR: fprintf(outhdl, "OR\n"); break;
-			case REL_XOR: fprintf(outhdl, "XOR\n"); break;
-			case REL_SWAP: fprintf(outhdl, "SWAP\n"); break;
-			case REL_POPB: fprintf(outhdl, "POPB\n"); break;
-			case REL_POPW: fprintf(outhdl, "POPW\n"); break;
-			case REL_PUSHB: fprintf(outhdl, "PUSHB %d\n", val); break;
-			case REL_PUSHW: fprintf(outhdl, "PUSHW %d\n", val); break;
-			case REL_CODEB: fprintf(outhdl, "CODEB %d\n", val); break;
-			case REL_CODEW: fprintf(outhdl, "CODEW %d\n", val); break;
-			case REL_DATAB: fprintf(outhdl, "DATAB %d\n", val); break;
-			case REL_DATAW: fprintf(outhdl, "DATAW %d\n", val); break;
-			case REL_TEXTB: fprintf(outhdl, "TEXTB %d\n", val); break;
-			case REL_TEXTW: fprintf(outhdl, "TEXTW %d\n", val); break;
-			case REL_UDEFB: fprintf(outhdl, "UDEFB %d\n", val); break;
-			case REL_UDEFW: fprintf(outhdl, "UDEFW %d\n", val); break;
-			case REL_DSB: fprintf(outhdl, "DSB %d\n", val); break;
-			case REL_CODEORG: fprintf(outhdl, "CODEORG %d\n", val); break;
-			case REL_DATAORG: fprintf(outhdl, "DATAORG %d\n", val); break;
-			case REL_TEXTORG: fprintf(outhdl, "TEXTORG %d\n", val); break;
-			case REL_UDEFORG: fprintf(outhdl, "UDEFORG %d\n", val); break;
+			case REL_END: fprintf(outhdl, "end\n", val); break;
+			case REL_ADD: fprintf(outhdl, "add\n"); break;
+			case REL_SUB: fprintf(outhdl, "sub\n"); break;
+			case REL_MUL: fprintf(outhdl, "mul\n"); break;
+			case REL_DIV: fprintf(outhdl, "div\n"); break;
+			case REL_MOD: fprintf(outhdl, "mod\n"); break;
+			case REL_LSR: fprintf(outhdl, "lsr\n"); break;
+			case REL_LSL: fprintf(outhdl, "lsl\n"); break;
+			case REL_AND: fprintf(outhdl, "and\n"); break;
+			case REL_OR:   fprintf(outhdl, "or\n"); break;
+			case REL_XOR: fprintf(outhdl, "xor\n"); break;
+			case REL_SWAP: fprintf(outhdl, "swap\n"); break;
+			case REL_POPB: fprintf(outhdl, "popb\n"); break;
+			case REL_POPW: fprintf(outhdl, "popw\n"); break;
+			case REL_PUSHB: fprintf(outhdl, "pushb %d\n", val); break;
+			case REL_PUSHW: fprintf(outhdl, "pushw %d\n", val); break;
+			case REL_CODEB: fprintf(outhdl, "codeb %d\n", val); break;
+			case REL_CODEW: fprintf(outhdl, "codew %d\n", val); break;
+			case REL_DATAB: fprintf(outhdl, "datab %d\n", val); break;
+			case REL_DATAW: fprintf(outhdl, "dataw %d\n", val); break;
+			case REL_TEXTB: fprintf(outhdl, "textb %d\n", val); break;
+			case REL_TEXTW: fprintf(outhdl, "textw %d\n", val); break;
+			case REL_UDEFB: fprintf(outhdl, "udefb %d\n", val); break;
+			case REL_UDEFW: fprintf(outhdl, "udefw %d\n", val); break;
+			case REL_DSB: fprintf(outhdl, "dsb %d\n", val); break;
+			case REL_CODEORG: fprintf(outhdl, "codeorg %d\n", val); break;
+			case REL_DATAORG: fprintf(outhdl, "dataorg %d\n", val); break;
+			case REL_TEXTORG: fprintf(outhdl, "textorg %d\n", val); break;
+			case REL_UDEFORG: fprintf(outhdl, "udeforg %d\n", val); break;
 			case REL_SYMBOL:
-				fprintf(outhdl, "SYMBOL ");
+				fprintf(outhdl, "symbol ");
 				foutname(val);
 				fprintf(outhdl, "\n");
 				break;
 			case REL_CODEDEF:
 				p = &names[val * NLAST];
-				fprintf(outhdl, "CODEDEF %d,", p[NVALUE]);
+				fprintf(outhdl, "codedef %d,", p[NVALUE]);
 				foutname(val);
 				fprintf(outhdl, "\n", 0);
 				break;
 			case REL_DATADEF:
 				p = &names[val * NLAST];
-				fprintf(outhdl, "DATADEF %d,", p[NVALUE]);
+				fprintf(outhdl, "datadef %d,", p[NVALUE]);
 				foutname(val);
 				fprintf(outhdl, "\n", 0);
 				break;
 			case REL_TEXTDEF:
 				p = &names[val * NLAST];
-				fprintf(outhdl, "TEXTDEF %d,", p[NVALUE]);
+				fprintf(outhdl, "textdef %d,", p[NVALUE]);
 				foutname(val);
 				fprintf(outhdl, "\n", 0);
 				break;
 			case REL_UDEFDEF:
 				p = &names[val * NLAST];
-				fprintf(outhdl, "UDEFDEF %d,", p[NVALUE]);
+				fprintf(outhdl, "udefdef %d,", p[NVALUE]);
 				foutname(val);
 				fprintf(outhdl, "\n", 0);
 				break;
@@ -1612,19 +1612,25 @@ parse() {
 						error("unknown segment");
 					continue;
 				} else if (match("=")) {
-					len = dohash(lptr, &p[NVALUE]);
-					if (!len) {
-						if (pass == 1)
-							error("undefined");
-						ch = 0;
-					} else {
-						bump(len);
+					expression(lval);
+					if (lval[LTYPE] == CONSTANT) {
+						p[NTYPE] = ABS;
+						p[NVALUE] = lval[LVALUE];
+					} else if (lval[LTYPE] == SYMBOL) {
 						p[NTYPE] = LINK;
+						p[NVALUE] = lval[LVALUE];
+
 						p = &names[p[NVALUE] * NLAST];
 						if (!p[NTYPE])
-							p[NTYPE] = UNDEF; // Initial value
+							p[NTYPE] = UNDEF;	// Initial value
+					} else if (pass == 1) {
+						p[NTYPE] = ABS;
+						p[NVALUE] = 0;
+					} else {
+						error("use #define");
 					}
 					break;
+
 				} else {
 					if (pass == 1)
 						error("unknown opcode");
@@ -1722,24 +1728,10 @@ parse() {
  * Initialize all variables
  */
 add_res(char *opc, int typ, int val) {
-	char buf[20];
 	int hash;
 	register int *p;
-	register char *cp1, *cp2;
 
-	// upper case
 	dohash(opc, &hash);
-	p = &names[hash * NLAST];
-	p[NTYPE] = typ;
-	p[NVALUE] = val;
-
-	// AND lowercase
-	cp1 = opc;
-	cp2 = buf;
-	while (*cp1)
-		*cp2++ = ((*cp1 >= 'A') && (*cp1 <= 'Z')) ? *cp1++ - 'A' + 'a' : *cp1++;
-	*cp2++ = 0;
-	dohash(buf, &hash);
 	p = &names[hash * NLAST];
 	p[NTYPE] = typ;
 	p[NVALUE] = val;
@@ -1793,67 +1785,67 @@ initialize() {
 	maxpos[CODESEG] = maxpos[DATASEG] = maxpos[TEXTSEG] = maxpos[UDEFSEG] = 0;
 
 	// reserved words
-	add_res("ILLEGAL", OPCODE, OPC_ILLEGAL);
-	add_res("ADD", OPCODE, OPC_ADD);
-	add_res("SUB", OPCODE, OPC_SUB);
-	add_res("MUL", OPCODE, OPC_MUL);
-	add_res("DIV", OPCODE, OPC_DIV);
-	add_res("MOD", OPCODE, OPC_MOD);
-	add_res("OR", OPCODE, OPC_OR);
-	add_res("XOR", OPCODE, OPC_XOR);
-	add_res("AND", OPCODE, OPC_AND);
-	add_res("LSR", OPCODE, OPC_LSR);
-	add_res("LSL", OPCODE, OPC_LSL);
-	add_res("NEG", OPCODE, OPC_NEG);
-	add_res("NOT", OPCODE, OPC_NOT);
-	add_res("BEQ", OPCODE, OPC_BEQ);
-	add_res("BNE", OPCODE, OPC_BNE);
-	add_res("BLT", OPCODE, OPC_BLT);
-	add_res("BLE", OPCODE, OPC_BLE);
-	add_res("BGT", OPCODE, OPC_BGT);
-	add_res("BGE", OPCODE, OPC_BGE);
-	add_res("LDB", OPCODE, OPC_LDB);
-	add_res("LDW", OPCODE, OPC_LDW);
-	add_res("LDR", OPCODE, OPC_LDR);
-	add_res("LDA", OPCODE, OPC_LEA);
-	add_res("CMP", OPCODE, OPC_CMP);
-	add_res("STB", OPCODE, OPC_STB);
-	add_res("STW", OPCODE, OPC_STW);
-	add_res("JMP", OPCODE, OPC_JMP);
-	add_res("JSB", OPCODE, OPC_JSB);
-	add_res("RSB", OPCODE, OPC_RSB);
-	add_res("PSHR", OPCODE, OPC_PSHR);
-	add_res("POPR", OPCODE, OPC_POPR);
-	add_res("PSHB", OPCODE, OPC_PSHB);
-	add_res("PSHW", OPCODE, OPC_PSHW);
-	add_res("PSHA", OPCODE, OPC_PSHA);
-	add_res("SVC", OPCODE, OPC_SVC);
-	add_res(".CODE", PSEUDO, PSEUDO_CODE);
-	add_res(".DATA", PSEUDO, PSEUDO_DATA);
-	add_res(".TEXT", PSEUDO, PSEUDO_TEXT);
-	add_res(".UDEF", PSEUDO, PSEUDO_UDEF);
-	add_res(".ORG", PSEUDO, PSEUDO_ORG);
-	add_res(".END", PSEUDO, PSEUDO_END);
-	add_res(".DCB", PSEUDO, PSEUDO_DCB);
-	add_res(".DCW", PSEUDO, PSEUDO_DCW);
-	add_res(".DSB", PSEUDO, PSEUDO_DSB);
-	add_res(".DSW", PSEUDO, PSEUDO_DSW);
-	add_res("R0", REGISTER, 0);
-	add_res("R1", REGISTER, 1);
-	add_res("R2", REGISTER, 2);
-	add_res("R3", REGISTER, 3);
-	add_res("R4", REGISTER, 4);
-	add_res("R5", REGISTER, 5);
-	add_res("R6", REGISTER, 6);
-	add_res("R7", REGISTER, 7);
-	add_res("R8", REGISTER, 8);
-	add_res("R9", REGISTER, 9);
-	add_res("R10", REGISTER, 10);
-	add_res("R11", REGISTER, 11);
-	add_res("R12", REGISTER, 12);
-	add_res("R13", REGISTER, 13);
-	add_res("R14", REGISTER, 14);
-	add_res("R15", REGISTER, 15);
+	add_res("illegal", OPCODE, OPC_ILLEGAL);
+	add_res("add", OPCODE, OPC_ADD);
+	add_res("sub", OPCODE, OPC_SUB);
+	add_res("mul", OPCODE, OPC_MUL);
+	add_res("div", OPCODE, OPC_DIV);
+	add_res("mod", OPCODE, OPC_MOD);
+	add_res("or", OPCODE, OPC_OR);
+	add_res("xor", OPCODE, OPC_XOR);
+	add_res("and", OPCODE, OPC_AND);
+	add_res("lsr", OPCODE, OPC_LSR);
+	add_res("lsl", OPCODE, OPC_LSL);
+	add_res("neg", OPCODE, OPC_NEG);
+	add_res("not", OPCODE, OPC_NOT);
+	add_res("beq", OPCODE, OPC_BEQ);
+	add_res("bne", OPCODE, OPC_BNE);
+	add_res("blt", OPCODE, OPC_BLT);
+	add_res("ble", OPCODE, OPC_BLE);
+	add_res("bgt", OPCODE, OPC_BGT);
+	add_res("bge", OPCODE, OPC_BGE);
+	add_res("ldb", OPCODE, OPC_LDB);
+	add_res("ldw", OPCODE, OPC_LDW);
+	add_res("ldr", OPCODE, OPC_LDR);
+	add_res("lda", OPCODE, OPC_LEA);
+	add_res("cmp", OPCODE, OPC_CMP);
+	add_res("stb", OPCODE, OPC_STB);
+	add_res("stw", OPCODE, OPC_STW);
+	add_res("jmp", OPCODE, OPC_JMP);
+	add_res("jsb", OPCODE, OPC_JSB);
+	add_res("rsb", OPCODE, OPC_RSB);
+	add_res("pshr", OPCODE, OPC_PSHR);
+	add_res("popr", OPCODE, OPC_POPR);
+	add_res("pshb", OPCODE, OPC_PSHB);
+	add_res("pshw", OPCODE, OPC_PSHW);
+	add_res("psha", OPCODE, OPC_PSHA);
+	add_res("svc", OPCODE, OPC_SVC);
+	add_res(".code", PSEUDO, PSEUDO_CODE);
+	add_res(".data", PSEUDO, PSEUDO_DATA);
+	add_res(".text", PSEUDO, PSEUDO_TEXT);
+	add_res(".udef", PSEUDO, PSEUDO_UDEF);
+	add_res(".org", PSEUDO, PSEUDO_ORG);
+	add_res(".end", PSEUDO, PSEUDO_END);
+	add_res(".dcb", PSEUDO, PSEUDO_DCB);
+	add_res(".dcw", PSEUDO, PSEUDO_DCW);
+	add_res(".dsb", PSEUDO, PSEUDO_DSB);
+	add_res(".dsw", PSEUDO, PSEUDO_DSW);
+	add_res("r0", REGISTER, 0);
+	add_res("r1", REGISTER, 1);
+	add_res("r2", REGISTER, 2);
+	add_res("r3", REGISTER, 3);
+	add_res("r4", REGISTER, 4);
+	add_res("r5", REGISTER, 5);
+	add_res("r6", REGISTER, 6);
+	add_res("r7", REGISTER, 7);
+	add_res("r8", REGISTER, 8);
+	add_res("r9", REGISTER, 9);
+	add_res("r10", REGISTER, 10);
+	add_res("r11", REGISTER, 11);
+	add_res("r12", REGISTER, 12);
+	add_res("r13", REGISTER, 13);
+	add_res("r14", REGISTER, 14);
+	add_res("r15", REGISTER, 15);
 	add_res(".", POINT, 0);
 }
 
@@ -1999,10 +1991,10 @@ main(int argc, int *argv) {
 	}
 
 	if (lishdl) {
-		fprintf(lishdl, "CODE  : 0x%04x (%5d)\n", maxpos[CODESEG] & 0xffff, maxpos[CODESEG] & 0xffff);
-		fprintf(lishdl, "DATA  : 0x%04x (%5d)\n", maxpos[DATASEG] & 0xffff, maxpos[DATASEG] & 0xffff);
-		fprintf(lishdl, "TEXT  : 0x%04x (%5d)\n", maxpos[TEXTSEG] & 0xffff, maxpos[TEXTSEG] & 0xffff);
-		fprintf(lishdl, "UDEF  : 0x%04x (%5d)\n", maxpos[UDEFSEG] & 0xffff, maxpos[UDEFSEG] & 0xffff);
+		fprintf(lishdl, "code  : 0x%04x (%5d)\n", maxpos[CODESEG] & 0xffff, maxpos[CODESEG] & 0xffff);
+		fprintf(lishdl, "data  : 0x%04x (%5d)\n", maxpos[DATASEG] & 0xffff, maxpos[DATASEG] & 0xffff);
+		fprintf(lishdl, "text  : 0x%04x (%5d)\n", maxpos[TEXTSEG] & 0xffff, maxpos[TEXTSEG] & 0xffff);
+		fprintf(lishdl, "udef  : 0x%04x (%5d)\n", maxpos[UDEFSEG] & 0xffff, maxpos[UDEFSEG] & 0xffff);
 		j = 0;
 		for (i = 0; i < NAMEMAX; ++i) if (names[i * NLAST + NCHAR]) ++j;
 		fprintf(lishdl, "Names : %5d(%5d)\n", j, NAMEMAX);

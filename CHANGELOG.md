@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+```
+2020-06-04 22:40:44 Lowercase assembler.
+```
+
 ## [Release 2.1.0] 2020-06-04 12:44:07
 
 Simplified and bugfixed `sym[]` (identifier) and `lval[]` (peephole) structures.
