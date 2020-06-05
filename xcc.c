@@ -575,41 +575,41 @@ toseg(register int newseg) {
  */
 genopc(int opc) {
 	switch (opc) {
-	case TOK_ILLEGAL: fprintf(outhdl, "\tillegal\t"); break;
-	case TOK_ADD : fprintf(outhdl, "\tadd\t"); break;
-	case TOK_SUB : fprintf(outhdl, "\tsub\t"); break;
-	case TOK_MUL : fprintf(outhdl, "\tmul\t"); break;
-	case TOK_DIV : fprintf(outhdl, "\tdiv\t"); break;
-	case TOK_MOD : fprintf(outhdl, "\tmod\t"); break;
-	case TOK_OR  : fprintf(outhdl, "\tor\t"); break;
-	case TOK_XOR : fprintf(outhdl, "\txor\t"); break;
-	case TOK_AND : fprintf(outhdl, "\tand\t"); break;
-	case TOK_LSR : fprintf(outhdl, "\tlsr\t"); break;
-	case TOK_LSL : fprintf(outhdl, "\tlsl\t"); break;
-	case TOK_NEG : fprintf(outhdl, "\tneg\t"); break;
-	case TOK_NOT : fprintf(outhdl, "\tnot\t"); break;
-	case TOK_BEQ  : fprintf(outhdl, "\tbeq\t"); break;
-	case TOK_BNE  : fprintf(outhdl, "\tbne\t"); break;
-	case TOK_BLT  : fprintf(outhdl, "\tblt\t"); break;
-	case TOK_BLE  : fprintf(outhdl, "\tble\t"); break;
-	case TOK_BGT  : fprintf(outhdl, "\tbgt\t"); break;
-	case TOK_BGE  : fprintf(outhdl, "\tbge\t"); break;
-	case TOK_LDB: fprintf(outhdl, "\tldb\t"); break;
-	case TOK_LDW: fprintf(outhdl, "\tldw\t"); break;
-	case TOK_LDR: fprintf(outhdl, "\tldr\t"); break;
-	case TOK_LDA : fprintf(outhdl, "\tlda\t"); break;
-	case TOK_CMP : fprintf(outhdl, "\tcmp\t"); break;
-	case TOK_TST : fprintf(outhdl, "\ttst\t"); break;
-	case TOK_STB: fprintf(outhdl, "\tstb\t"); break;
-	case TOK_STW: fprintf(outhdl, "\tstw\t"); break;
-	case TOK_JMP : fprintf(outhdl, "\tjmp\t"); break;
-	case TOK_JSB : fprintf(outhdl, "\tjsb\t"); break;
-	case TOK_RSB : fprintf(outhdl, "\trsb\t"); break;
-	case TOK_PSHB: fprintf(outhdl, "\tpshb\t"); break;
-	case TOK_PSHW: fprintf(outhdl, "\tpshw\t"); break;
-	case TOK_PSHA: fprintf(outhdl, "\tpsha\t"); break;
-	case TOK_PSHR: fprintf(outhdl, "\tpshr\t"); break;
-	case TOK_POPR: fprintf(outhdl, "\tpopr\t"); break;
+	case TOK_ILLEGAL: fprintf(outhdl, "\tillegal"); break;
+	case TOK_ADD : fprintf(outhdl, "\tadd"); break;
+	case TOK_SUB : fprintf(outhdl, "\tsub"); break;
+	case TOK_MUL : fprintf(outhdl, "\tmul"); break;
+	case TOK_DIV : fprintf(outhdl, "\tdiv"); break;
+	case TOK_MOD : fprintf(outhdl, "\tmod"); break;
+	case TOK_OR  : fprintf(outhdl, "\tor"); break;
+	case TOK_XOR : fprintf(outhdl, "\txor"); break;
+	case TOK_AND : fprintf(outhdl, "\tand"); break;
+	case TOK_LSR : fprintf(outhdl, "\tlsr"); break;
+	case TOK_LSL : fprintf(outhdl, "\tlsl"); break;
+	case TOK_NEG : fprintf(outhdl, "\tneg"); break;
+	case TOK_NOT : fprintf(outhdl, "\tnot"); break;
+	case TOK_BEQ  : fprintf(outhdl, "\tbeq"); break;
+	case TOK_BNE  : fprintf(outhdl, "\tbne"); break;
+	case TOK_BLT  : fprintf(outhdl, "\tblt"); break;
+	case TOK_BLE  : fprintf(outhdl, "\tble"); break;
+	case TOK_BGT  : fprintf(outhdl, "\tbgt"); break;
+	case TOK_BGE  : fprintf(outhdl, "\tbge"); break;
+	case TOK_LDB: fprintf(outhdl, "\tldb"); break;
+	case TOK_LDW: fprintf(outhdl, "\tldw"); break;
+	case TOK_LDR: fprintf(outhdl, "\tldr"); break;
+	case TOK_LDA : fprintf(outhdl, "\tlda"); break;
+	case TOK_CMP : fprintf(outhdl, "\tcmp"); break;
+	case TOK_TST : fprintf(outhdl, "\ttst"); break;
+	case TOK_STB: fprintf(outhdl, "\tstb"); break;
+	case TOK_STW: fprintf(outhdl, "\tstw"); break;
+	case TOK_JMP : fprintf(outhdl, "\tjmp"); break;
+	case TOK_JSB : fprintf(outhdl, "\tjsb"); break;
+	case TOK_RSB : fprintf(outhdl, "\trsb"); break;
+	case TOK_PSHB: fprintf(outhdl, "\tpshb"); break;
+	case TOK_PSHW: fprintf(outhdl, "\tpshw"); break;
+	case TOK_PSHA: fprintf(outhdl, "\tpsha"); break;
+	case TOK_PSHR: fprintf(outhdl, "\tpshr"); break;
+	case TOK_POPR: fprintf(outhdl, "\tpopr"); break;
 	}
 }
 
@@ -622,7 +622,7 @@ gencode(int opc) {
 gencode_L(int opc, int lbl) {
 	genopc(opc);
 
-	fprintf(outhdl, "_%d\n", lbl);
+	fprintf(outhdl, "\t_%d\n", lbl);
 }
 
 gencode_R(int opc, int lreg, int rreg) {
@@ -630,6 +630,7 @@ gencode_R(int opc, int lreg, int rreg) {
 	lreg |= -(lreg & (1 << SBIT));
 
 	genopc(opc);
+	fputc('\t', outhdl);
 
 	if (lreg >= 0)
 		fprintf(outhdl, "r%d,", lreg);
@@ -642,6 +643,7 @@ gencode_I(int opc, int lreg, int imm) {
 	imm |= -(imm & (1 << SBIT));
 
 	genopc(opc);
+	fputc('\t', outhdl);
 
 	if (lreg >= 0)
 		fprintf(outhdl, "r%d,", lreg);
@@ -667,6 +669,7 @@ gencode_M(int opc, int lreg, int name, int ofs, int rreg) {
 	ofs |= -(ofs & (1 << SBIT));
 
 	genopc(opc);
+	fputc('\t', outhdl);
 
 	if (lreg >= 0)
 		fprintf(outhdl, "r%d,", lreg);

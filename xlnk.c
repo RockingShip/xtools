@@ -1201,7 +1201,7 @@ process() {
 		printf("Pass 2\n");
 
 	// generate prefix "JMP ___START"
-	datbuf[0] = 0x6F;  // opcode for JMP
+	datbuf[0] = 0x3F;  // opcode for JMP
 	dohash("___START", &hash);
 	datbuf[1] = name[hash * NLAST + NVALUE] >> 8; // hi
 	datbuf[2] = name[hash * NLAST + NVALUE]; // lo

@@ -119,12 +119,12 @@ enum {
 	OPC_LSL = 0x1A,
 	OPC_NEG = 0x1D,
 	OPC_NOT = 0x1C,
-	OPC_BEQ = 0x68,
-	OPC_BNE = 0x67,
-	OPC_BLT = 0x64,
-	OPC_BLE = 0x63,
-	OPC_BGT = 0x66,
-	OPC_BGE = 0x65,
+	OPC_BEQ = 0x38,
+	OPC_BNE = 0x37,
+	OPC_BLT = 0x34,
+	OPC_BLE = 0x33,
+	OPC_BGT = 0x36,
+	OPC_BGE = 0x35,
 	OPC_LDB = 0x04,
 	OPC_LDW = 0x01,
 	OPC_LDR = 0x11,
@@ -132,7 +132,7 @@ enum {
 	OPC_CMP = 0x10,
 	OPC_STB = 0x05,
 	OPC_STW = 0x02,
-	OPC_JMP = 0x6F,
+	OPC_JMP = 0x3F,
 	OPC_JSB = 0x20,
 	OPC_RSB = 0x21,
 	OPC_PSHR = 0x23,
@@ -565,17 +565,14 @@ sto_flush() {
 			write_byte(cval);
 			fwrite(datbuf, 1, datlen, outhdl);
 		} else {
-			i = 0;
-			while (i < datlen) {
-				for (j = 0; j < 16; ++j) {
-					fprintf(outhdl, "0x%02x", (i >= datlen) ? 0 : datbuf[i]);
-					if (++i >= datlen)
-						break;
-					if (j != 15)
-						fprintf(outhdl, ",");
-				}
-				fprintf(outhdl, "\n");
+			for (i=0; i<datlen; ++i) {
+				if (i&15)
+					fputc(',', outhdl);
+				else if (i)
+					fputc('\n', outhdl);
+				fprintf(outhdl, "0x%02x", datbuf[i]);
 			}
+			fputc('\n', outhdl);
 		}
 
 		datlen = 0;
@@ -1572,7 +1569,7 @@ parse() {
 
 	while (inphdl) {
 		if (debug && (pass == 2))
-			fprintf(outhdl, ";%s\n", lptr);
+			fprintf(outhdl, "; %04x %s\n", curpos[CODESEG], lptr);
 		while (1) {
 			blanks();
 			if (!ch)
