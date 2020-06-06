@@ -8,8 +8,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-06 01:18:01 Adapted `step()` to risc instructions.
+                    Split into `prestep()` and `poststep()`.
+                    Cannot optimize generated code until condition codes dropped.
+                    Added `add/sub/ld/st` risc instructions.
+                    Choose `step()` because it is the smallest and complex.
 2020-06-05 20:27:27 Re-enumerate opcodes and relocate 0x6? block to 0x3?.
-                    Free block to free a large rance for risc opcodes.
+                    Free block to free a large range for risc opcodes.
 2020-06-04 23:06:18 `pshr/popr` pair uses assembler "=" instead of ".org".
 2020-06-04 22:40:44 Lowercase assembler.
 ```

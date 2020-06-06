@@ -141,6 +141,19 @@ enum {
 	OPC_PSHW = 0x26,
 	OPC_PSHA = 0x27,
 	OPC_SVC = 0x0A,
+
+	OPC_ADDA = 0x4c+0,
+	OPC_ADDB = 0x4c+1,
+	OPC_ADDW = 0x4c+2,
+	OPC_SUBA = 0x50+0,
+	OPC_SUBB = 0x50+1,
+	OPC_SUBW = 0x50+2,
+	OPC_LODA  = 0x70+0,
+	OPC_LODB  = 0x70+1,
+	OPC_LODW  = 0x70+2,
+	OPC_STOA  = 0x74+0,
+	OPC_STOB  = 0x74+1,
+	OPC_STOW  = 0x74+2,
 };
 
 /*
@@ -1315,6 +1328,105 @@ need_mem() {
 	}
 }
 
+/*
+ *
+ */
+need_risc() {
+	int lval[LLAST];
+	int hash;
+	register int len, *p;
+	int lreg, imm, rreg;
+
+	/*
+	 * Register
+	 */
+	blanks();
+	len = dohash(lptr, &hash);
+	if (!len) {
+		error("register expected");
+		return;
+	}
+	bump(len);
+	while (1) {
+		p = &names[hash * NLAST];
+		// follow chain
+		if (p[NTYPE] != LINK)
+			break;
+		else
+			hash = p[NVALUE];
+	}
+	if (p[NTYPE] != REGISTER) {
+		error("register expected");
+		return;
+	}
+	lreg = p[NVALUE];
+
+	/*
+	 * Comma
+	 */
+	blanks();
+	if (ch == ',')
+		gch();
+	else
+		error("comma expected");
+
+	/*
+	 * Immediate
+	 */
+	blanks();
+	if (ch != '(')
+		expression(lval);
+	else
+		lval[LTYPE] = 0;
+
+	/*
+	 * register-indirect
+	 */
+	blanks();
+	if (ch == '(') {
+		gch();
+		blanks();
+		len = dohash(lptr, &hash);
+		if (!len) {
+			error("register expected");
+			return;
+		}
+		bump(len);
+		while (1) {
+			p = &names[hash * NLAST];
+			// follow chain
+			if (p[NTYPE] != LINK)
+				break;
+			else
+				hash = p[NVALUE];
+		}
+		if (p[NTYPE] != REGISTER) {
+			error("register expected");
+			return;
+		}
+		rreg = p[NVALUE];
+
+		blanks();
+		if (ch == ')')
+			gch();
+		else
+			error(") expected");
+	} else
+		rreg = 0;
+
+	// registers
+	sto_data(lreg << 4 | rreg, 1);
+	// immediate
+	if (lval[LTYPE] == 0) {
+		sto_data(0, BPW);
+	} else if (lval[LTYPE] == CONSTANT) {
+		sto_data(lval[LVALUE], BPW);
+	} else {
+		loadlval(lval);
+		sto_cmd(REL_POPW, 0);
+	}
+}
+
 do_pseudo(register int p[]) {
 	int val, lval[LLAST];
 	register int size;
@@ -1483,6 +1595,20 @@ do_opcode(register int p[]) {
 		case OPC_STW:
 			curpos[curseg] += 5;
 			break;
+		case OPC_ADDA:
+		case OPC_ADDB:
+		case OPC_ADDW:
+		case OPC_SUBA:
+		case OPC_SUBB:
+		case OPC_SUBW:
+		case OPC_LODA:
+		case OPC_LODB:
+		case OPC_LODW:
+		case OPC_STOA:
+		case OPC_STOB:
+		case OPC_STOW:
+			curpos[curseg] += 4;
+			break;
 		default:
 			error("unimplemented opcode");
 			break;
@@ -1550,6 +1676,21 @@ do_opcode(register int p[]) {
 			need_comma();
 			need_mem();
 			curpos[curseg] += 5;
+			break;
+		case OPC_ADDA:
+		case OPC_ADDB:
+		case OPC_ADDW:
+		case OPC_SUBA:
+		case OPC_SUBB:
+		case OPC_SUBW:
+		case OPC_LODA:
+		case OPC_LODB:
+		case OPC_LODW:
+		case OPC_STOA:
+		case OPC_STOB:
+		case OPC_STOW:
+			need_risc();
+			curpos[curseg] += 4;
 			break;
 		default:
 			error("unimplemented opcode");
@@ -1780,6 +1921,19 @@ initialize() {
 	curseg = CODESEG;
 	curpos[CODESEG] = curpos[DATASEG] = curpos[TEXTSEG] = curpos[UDEFSEG] = 0;
 	maxpos[CODESEG] = maxpos[DATASEG] = maxpos[TEXTSEG] = maxpos[UDEFSEG] = 0;
+
+	add_res("add.a", OPCODE, OPC_ADDA);
+	add_res("add.b", OPCODE, OPC_ADDB);
+	add_res("add.w", OPCODE, OPC_ADDW);
+	add_res("sub.a", OPCODE, OPC_SUBA);
+	add_res("sub.b", OPCODE, OPC_SUBB);
+	add_res("sub.w", OPCODE, OPC_SUBW);
+	add_res("ld.a", OPCODE, OPC_LODA);
+	add_res("ld.b", OPCODE, OPC_LODB);
+	add_res("ld.w", OPCODE, OPC_LODW);
+	add_res("st.a", OPCODE, OPC_STOA);
+	add_res("st.b", OPCODE, OPC_STOB);
+	add_res("st.w", OPCODE, OPC_STOW);
 
 	// reserved words
 	add_res("illegal", OPCODE, OPC_ILLEGAL);

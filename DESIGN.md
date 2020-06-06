@@ -71,7 +71,9 @@ ld.<size> <reg>,<ea>
 
 st.<size> <reg>,<ea>
     
-    Store contents <reg> to <ea>. Size must be non-zero.
+    Store contents <reg> to <ea>.
+    NOTE: Size must be non-zero.
+    NOTE: The concept of this instructions does not exist within `untangle`. (`pDATA` segment).
 
 psh.<size> <ea>
 

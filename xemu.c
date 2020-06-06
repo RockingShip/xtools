@@ -87,6 +87,19 @@ enum {
 	OPC_PSHW = 0x26,
 	OPC_PSHA = 0x27,
 	OPC_SVC = 0x0A,
+
+	OPC_ADDA = 0x4c+0,
+	OPC_ADDB = 0x4c+1,
+	OPC_ADDW = 0x4c+2,
+	OPC_SUBA = 0x50+0,
+	OPC_SUBB = 0x50+1,
+	OPC_SUBW = 0x50+2,
+	OPC_LODA  = 0x70+0,
+	OPC_LODB  = 0x70+1,
+	OPC_LODW  = 0x70+2,
+	OPC_STOA  = 0x74+0,
+	OPC_STOB  = 0x74+1,
+	OPC_STOW  = 0x74+2,
 };
 
 /*
@@ -143,6 +156,19 @@ void initialize(void) {
 	handles[0] = stdin;
 	handles[1] = stdout;
 	handles[2] = stderr;
+
+	opc_name[OPC_ADDA] = "add.a";
+	opc_name[OPC_ADDB] = "add.b";
+	opc_name[OPC_ADDW] = "add.w";
+	opc_name[OPC_SUBA] = "sub.a";
+	opc_name[OPC_SUBB] = "sub.b";
+	opc_name[OPC_SUBW] = "sub.w";
+	opc_name[OPC_LODA] = "ld.a";
+	opc_name[OPC_LODB] = "ld.b";
+	opc_name[OPC_LODW] = "ld.w";
+	opc_name[OPC_STOA] = "st.a";
+	opc_name[OPC_STOB] = "st.b";
+	opc_name[OPC_STOW] = "st.w";
 }
 
 char *fext(char *path, char *ext, int force) {
@@ -799,13 +825,93 @@ void run(uint16_t inisp) {
 			/* process */
 			do_svc(pc - 2, rval, cc);
 			break;
-		default:
-			printf("encountered unimplemented opcode\n");
-			disp_opc(pc - 1);
-			disp_dump(pc - 1, cc);
-			if (verbose)
-				printf("lowestSP=%04x\n", lowestSP);
-			shutdown(1);
+		case OPC_STOB: {
+			// risc
+			register int lreg, ea;
+			lreg = (image[pc] & 0xF0) >> 4;
+			ea = regs[image[pc++] & 0xF];
+			ea += image[pc++] << 8;
+			ea += image[pc++] & 0xFF;
+
+			cp = &image[ea & 0xffff];
+			lval = regs[lreg];
+			cp[0] = lval;
+
+			/* update CC */
+			if (lval > 0) cc = 2; else if (lval < 0) cc = 1; else cc = 0;
+			break;
+		}
+		case OPC_STOW: {
+			// risc
+			register int lreg, ea;
+			lreg = (image[pc] & 0xF0) >> 4;
+			ea = regs[image[pc++] & 0xF];
+			ea += image[pc++] << 8;
+			ea += image[pc++] & 0xFF;
+
+			cp = &image[ea & 0xffff];
+			lval = regs[lreg];
+			cp[0] = lval >> 8;
+			cp[1] = lval;
+
+			/* update CC */
+			if (lval > 0) cc = 2; else if (lval < 0) cc = 1; else cc = 0;
+			break;
+		}
+		default: {
+			register int lreg, ea;
+
+			// RISC instructions
+			// 32<-----------------------------------------------------<0
+			// <immlo.8> <immhi.8> <eareg>.4 <lreg.4> <opcode.6> <size.2>
+
+			lreg = (image[pc] & 0xF0) >> 4;
+			ea = regs[image[pc++] & 0xF];
+			ea += image[pc++] << 8;
+			ea += image[pc++] & 0xFF;
+
+			if ((opc & 3) == 1) {
+				cp = &image[ea & 0xffff];
+				ea = cp[0];
+			} else if ((opc & 3) == 2) {
+				cp = &image[ea & 0xffff];
+				ea = (cp[0] << 8) + (cp[1] & 0xFF);
+			}
+
+			switch (opc) {
+			case OPC_ADDA:
+			case OPC_ADDB:
+			case OPC_ADDW:
+				lval = regs[lreg] += ea;
+				break;
+			case OPC_SUBA:
+			case OPC_SUBB:
+			case OPC_SUBW:
+				lval = regs[lreg] -= ea;
+				break;
+			case OPC_LODA:
+			case OPC_LODB:
+			case OPC_LODW:
+				lval = regs[lreg] = ea;
+				break;
+			default:
+				pc -= 3;
+				printf("encountered unimplemented opcode\n");
+				disp_opc(pc - 1);
+				disp_dump(pc - 1, cc);
+				if (verbose)
+					printf("lowestSP=%04x\n", lowestSP);
+				shutdown(1);
+			}
+
+			if (lval == 0)
+				cc = 0;
+			else if (lval & (1 << SBIT))
+				cc = 1;
+			else
+				cc = 2;
+
+		}
 		}
 	}
 }
