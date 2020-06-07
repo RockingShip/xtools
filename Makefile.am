@@ -69,20 +69,24 @@ xar.img : xar.xo getversion.xo
 	./xemu xasm -c $@ $<
 	cmp $*.xo3 $*.xo
 
+# @date 2020-06-07 20:57:12
+# need .xo3 to trigger build rules but need .xo to link because ".xo3" results in a different hashtable.
+# This linker uses the hasttable to import library modules, ".xo3" might result in a different yet correct image.
+
 stage3-xcc.img : xcc.xo3 getversion.xo3
-	./xemu xlnk -m xcc.map -o $@ $^ -l xlib.xa
+	./xemu xlnk -m stage3-xcc.map -o $@ xcc.xo getversion.xo -l xlib.xa
 	cmp stage3-xcc.img xcc.img
 
 stage3-xasm.img : xasm.xo3 getversion.xo3
-	./xemu xlnk -m xasm.map -o $@ $^ -l xlib.xa
+	./xemu xlnk -m stage3-xasm.map -o $@ xasm.xo getversion.xo -l xlib.xa
 	cmp stage3-xasm.img xasm.img
 
 stage3-xlnk.img : xlnk.xo3 getversion.xo3
-	./xemu xlnk -m xlnk.map -o $@ $^ -l xlib.xa
+	./xemu xlnk -m stage3-xlnk.map -o $@ xlnk.xo getversion.xo -l xlib.xa
 	cmp stage3-xlnk.img xlnk.img
 
 stage3-xar.img : xar.xo3 getversion.xo3
-	./xemu xlnk -m xar.map -o $@ $^ -l xlib.xa
+	./xemu xlnk -m stage3-xar.map -o $@ xar.xo getversion.xo -l xlib.xa
 	cmp stage3-xar.img xar.img
 
 #
