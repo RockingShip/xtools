@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
-2020-06-06 01:18:01 Adapted `step()` to risc instructions.
+2020-06-07 19:16:22 Fixed unary "!".
+                    Need to invert last instruction AND all prior by swapping T/F labels.
+2020-06-06 01:18:01 Adapt `step()` to risc instructions.
                     Split into `prestep()` and `poststep()`.
                     Cannot optimize generated code until condition codes dropped.
                     Added `add/sub/ld/st` risc instructions.
