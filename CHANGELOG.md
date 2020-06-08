@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-08 23:10:21 Adapt `expr_rel()` and `expr_equ()` to risc instructions.
+                    Added `xor/sgt/slt` risc instructions.
 2020-06-08 00:49:39 Statement flow-control to risc instructions.
 2020-06-08 00:49:39 FIX: `reglock` includes `regresvd`.
                     `reglock` is the soft (local) version of `regresvd` (global).

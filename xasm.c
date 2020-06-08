@@ -142,24 +142,34 @@ enum {
 	OPC_PSHA = 0x27,
 	OPC_SVC = 0x0A,
 
-	OPC_ADDA = 0x4c+0,
-	OPC_ADDB = 0x4c+1,
-	OPC_ADDW = 0x4c+2,
-	OPC_SUBA = 0x50+0,
-	OPC_SUBB = 0x50+1,
-	OPC_SUBW = 0x50+2,
-	OPC_LODA  = 0x70+0,
-	OPC_LODB  = 0x70+1,
-	OPC_LODW  = 0x70+2,
-	OPC_STOA  = 0x74+0,
-	OPC_STOB  = 0x74+1,
-	OPC_STOW  = 0x74+2,
-	OPC_JEQA  = 0x78+0,
-	OPC_JEQB  = 0x78+1,
-	OPC_JEQW  = 0x78+2,
-	OPC_JNEA  = 0x7c+0,
-	OPC_JNEB  = 0x7c+1,
-	OPC_JNEW  = 0x7c+2,};
+	OPC_ADDA = 0x4c + 0,
+	OPC_ADDB = 0x4c + 1,
+	OPC_ADDW = 0x4c + 2,
+	OPC_SUBA = 0x50 + 0,
+	OPC_SUBB = 0x50 + 1,
+	OPC_SUBW = 0x50 + 2,
+	OPC_XORA = 0x60 + 0,
+	OPC_XORB = 0x60 + 1,
+	OPC_XORW = 0x60 + 2,
+	OPC_SGTA = 0x68 + 0,
+	OPC_SGTB = 0x68 + 1,
+	OPC_SGTW = 0x68 + 2,
+	OPC_SLTA = 0x6c + 0,
+	OPC_SLTB = 0x6c + 1,
+	OPC_SLTW = 0x6c + 2,
+	OPC_LODA = 0x70 + 0,
+	OPC_LODB = 0x70 + 1,
+	OPC_LODW = 0x70 + 2,
+	OPC_STOA = 0x74 + 0,
+	OPC_STOB = 0x74 + 1,
+	OPC_STOW = 0x74 + 2,
+	OPC_JEQA = 0x78 + 0,
+	OPC_JEQB = 0x78 + 1,
+	OPC_JEQW = 0x78 + 2,
+	OPC_JNEA = 0x7c + 0,
+	OPC_JNEB = 0x7c + 1,
+	OPC_JNEW = 0x7c + 2,
+};
 
 /*
  * Pseudo opcodes
@@ -1606,6 +1616,15 @@ do_opcode(register int p[]) {
 		case OPC_SUBA:
 		case OPC_SUBB:
 		case OPC_SUBW:
+		case OPC_XORA:
+		case OPC_XORB:
+		case OPC_XORW:
+		case OPC_SGTA:
+		case OPC_SGTB:
+		case OPC_SGTW:
+		case OPC_SLTA:
+		case OPC_SLTB:
+		case OPC_SLTW:
 		case OPC_LODA:
 		case OPC_LODB:
 		case OPC_LODW:
@@ -1694,6 +1713,15 @@ do_opcode(register int p[]) {
 		case OPC_SUBA:
 		case OPC_SUBB:
 		case OPC_SUBW:
+		case OPC_XORA:
+		case OPC_XORB:
+		case OPC_XORW:
+		case OPC_SGTA:
+		case OPC_SGTB:
+		case OPC_SGTW:
+		case OPC_SLTA:
+		case OPC_SLTB:
+		case OPC_SLTW:
 		case OPC_LODA:
 		case OPC_LODB:
 		case OPC_LODW:
@@ -1945,6 +1973,15 @@ initialize() {
 	add_res("sub.a", OPCODE, OPC_SUBA);
 	add_res("sub.b", OPCODE, OPC_SUBB);
 	add_res("sub.w", OPCODE, OPC_SUBW);
+	add_res("xor.a", OPCODE, OPC_XORA);
+	add_res("xor.b", OPCODE, OPC_XORB);
+	add_res("xor.w", OPCODE, OPC_XORW);
+	add_res("sgt.a", OPCODE, OPC_SGTA);
+	add_res("sgt.b", OPCODE, OPC_SGTB);
+	add_res("sgt.w", OPCODE, OPC_SGTW);
+	add_res("slt.a", OPCODE, OPC_SLTA);
+	add_res("slt.b", OPCODE, OPC_SLTB);
+	add_res("slt.w", OPCODE, OPC_SLTW);
 	add_res("ld.a", OPCODE, OPC_LODA);
 	add_res("ld.b", OPCODE, OPC_LODB);
 	add_res("ld.w", OPCODE, OPC_LODW);
