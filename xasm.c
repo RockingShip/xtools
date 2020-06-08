@@ -154,7 +154,12 @@ enum {
 	OPC_STOA  = 0x74+0,
 	OPC_STOB  = 0x74+1,
 	OPC_STOW  = 0x74+2,
-};
+	OPC_JEQA  = 0x78+0,
+	OPC_JEQB  = 0x78+1,
+	OPC_JEQW  = 0x78+2,
+	OPC_JNEA  = 0x7c+0,
+	OPC_JNEB  = 0x7c+1,
+	OPC_JNEW  = 0x7c+2,};
 
 /*
  * Pseudo opcodes
@@ -1607,6 +1612,12 @@ do_opcode(register int p[]) {
 		case OPC_STOA:
 		case OPC_STOB:
 		case OPC_STOW:
+		case OPC_JEQA:
+		case OPC_JEQB:
+		case OPC_JEQW:
+		case OPC_JNEA:
+		case OPC_JNEB:
+		case OPC_JNEW:
 			curpos[curseg] += 4;
 			break;
 		default:
@@ -1689,6 +1700,12 @@ do_opcode(register int p[]) {
 		case OPC_STOA:
 		case OPC_STOB:
 		case OPC_STOW:
+		case OPC_JEQA:
+		case OPC_JEQB:
+		case OPC_JEQW:
+		case OPC_JNEA:
+		case OPC_JNEB:
+		case OPC_JNEW:
 			need_risc();
 			curpos[curseg] += 4;
 			break;
@@ -1934,6 +1951,12 @@ initialize() {
 	add_res("st.a", OPCODE, OPC_STOA);
 	add_res("st.b", OPCODE, OPC_STOB);
 	add_res("st.w", OPCODE, OPC_STOW);
+	add_res("jeq.a", OPCODE, OPC_JEQA);
+	add_res("jeq.b", OPCODE, OPC_JEQB);
+	add_res("jeq.w", OPCODE, OPC_JEQW);
+	add_res("jne.a", OPCODE, OPC_JNEA);
+	add_res("jne.b", OPCODE, OPC_JNEB);
+	add_res("jne.w", OPCODE, OPC_JNEW);
 
 	// reserved words
 	add_res("illegal", OPCODE, OPC_ILLEGAL);

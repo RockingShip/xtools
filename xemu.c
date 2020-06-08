@@ -100,6 +100,12 @@ enum {
 	OPC_STOA  = 0x74+0,
 	OPC_STOB  = 0x74+1,
 	OPC_STOW  = 0x74+2,
+	OPC_JEQA  = 0x78+0,
+	OPC_JEQB  = 0x78+1,
+	OPC_JEQW  = 0x78+2,
+	OPC_JNEA  = 0x7c+0,
+	OPC_JNEB  = 0x7c+1,
+	OPC_JNEW  = 0x7c+2,
 };
 
 /*
@@ -169,6 +175,12 @@ void initialize(void) {
 	opc_name[OPC_STOA] = "st.a";
 	opc_name[OPC_STOB] = "st.b";
 	opc_name[OPC_STOW] = "st.w";
+	opc_name[OPC_JEQA] = "jeq.a";
+	opc_name[OPC_JEQB] = "jeq.b";
+	opc_name[OPC_JEQW] = "jeq.w";
+	opc_name[OPC_JNEA] = "jne.a";
+	opc_name[OPC_JNEB] = "jne.b";
+	opc_name[OPC_JNEW] = "jne.w";
 }
 
 char *fext(char *path, char *ext, int force) {
@@ -893,6 +905,20 @@ void run(uint16_t inisp) {
 			case OPC_LODB:
 			case OPC_LODW:
 				lval = regs[lreg] = ea;
+				break;
+			case OPC_JEQA:
+			case OPC_JEQB:
+			case OPC_JEQW:
+				lval = regs[lreg];
+				if (lval == 0)
+					pc = ea;
+				break;
+			case OPC_JNEA:
+			case OPC_JNEB:
+			case OPC_JNEW:
+				lval = regs[lreg];
+				if (lval != 0)
+					pc = ea;
 				break;
 			default:
 				pc -= 3;

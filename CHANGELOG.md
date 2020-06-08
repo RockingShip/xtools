@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-07 09:28:51 Adapt `expr_land()` ("&&") and `expr_lor()` ("||") to risc instructions.
+                    `LTYPE=BRANCH` now uses `lval[LREG]` as register containing the condition.
+                    Added `jeq/jne` risc instructions.
 2020-06-07 21:04:29 Fixed makefile stage3.
                     .xo3 as stage3 extension results in a different hasttable causing linker to load in different order.
 2020-06-07 19:16:22 Fixed unary "!".

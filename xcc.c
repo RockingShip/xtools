@@ -184,6 +184,8 @@ enum {
 	TOK_PSHA,
 	TOK_LD,
 	TOK_ST,
+	TOK_JEQ,
+	TOK_JNE,
 };
 
 /*
@@ -614,6 +616,8 @@ genopc(int opc) {
 	case TOK_POPR: fprintf(outhdl, "\tpopr"); break;
 	case TOK_LD: fprintf(outhdl, "\tld"); break;
 	case TOK_ST: fprintf(outhdl, "\tst"); break;
+	case TOK_JEQ: fprintf(outhdl, "\tjeq"); break;
+	case TOK_JNE: fprintf(outhdl, "\tjne"); break;
 	}
 }
 
@@ -749,6 +753,13 @@ gencode_risc(int opc, int lreg, int lval[]) {
 	fprintf(outhdl, "\n");
 }
 
+gencode_branch(int opc, int reg, int lbl) {
+	if (opc == TOK_JEQ || opc == TOK_JNE) {
+		genopc(opc);
+		fprintf(outhdl, ".a\tr%d,_%d\n", reg, lbl);
+	} else
+		gencode_L(opc, lbl);
+}
 
 /*
  * Allocate a free register
@@ -819,8 +830,6 @@ isINTPTR(register int lval[]) {
  * Free all registers assigned to a lval
  */
 freelval(register int lval[]) {
-	if (isConstant(lval) || lval[LTYPE] == BRANCH)
-		return;
 	if (!(reglock & (1 << lval[LREG])))
 		freereg(lval[LREG]);
 }
@@ -858,7 +867,7 @@ loadlval(register int lval[], register int reg) {
 			// need code to evaluate, result always in new register
 			freelval(lval);
 			reg = allocreg();
-		} else if (reg == 0 && ((reglock | regresvd) & (1 << lval[LREG]))) {
+		} else if (reg == 0 && (reglock & (1 << lval[LREG]))) {
 			// reserved/locked register to writable register
 			reg = allocreg();
 		} else if (lval[LNAME] == 0 && lval[LVALUE] == 0) {
@@ -901,7 +910,8 @@ loadlval(register int lval[], register int reg) {
 			reg = allocreg();
 		if (!lval[LFALSE])
 			lval[LFALSE] = ++nxtlabel;
-		gencode_L(lval[LVALUE], lval[LFALSE]);
+
+		gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		if (lval[LTRUE])
 			fprintf(outhdl, "_%d:", lval[LTRUE]);
 		gencode_R(TOK_LDR, reg, REG_1);
@@ -910,6 +920,7 @@ loadlval(register int lval[], register int reg) {
 		gencode_R(TOK_LDR, reg, REG_0);
 		fprintf(outhdl, "_%d:", lblX);
 
+		freelval(lval);
 		lval[LTYPE] = ADDRESS;
 		lval[LPTR] = 0;
 		lval[LNAME] = 0;
@@ -1122,6 +1133,8 @@ negop(register int op) {
 	case TOK_BLT: return TOK_BGE;
 	case TOK_BGE: return TOK_BLT;
 	case TOK_BLE: return TOK_BGT;
+	case TOK_JEQ: return TOK_JNE;
+	case TOK_JNE: return TOK_JEQ;
 	default: return op; // No negation
 	}
 }
@@ -1393,10 +1406,6 @@ expr_unary(register int lval[]) {
 		if (isConstant(lval))
 			lval[LVALUE] = !lval[LVALUE];
 		else if (lval[LTYPE] == BRANCH) {
-			/*
- 			 * @date 2020-06-07 19:16:22
- 			 * FIXED: Need to invert last instruction AND all prior by swapping T/F labels.
- 			 */
 			// invert opcode in peephole
 			lval[LVALUE] = negop(lval[LVALUE]);
 			// swap labels
@@ -1406,11 +1415,12 @@ expr_unary(register int lval[]) {
 			lval[LFALSE] = sav;
 		} else {
 			// convert CC bits into a BRANCH
-			loadlval(lval, 0);
-			freelval(lval);
+			loadlval(lval, -1);
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_BNE;
-			lval[LTRUE] = lval[LFALSE] = 0;
+			lval[LVALUE] = TOK_JNE;
+			// keep `LREG`
+			lval[LTRUE] = 0;
+			lval[LFALSE] = 0;
 		}
 	} else if (match("-")) {
 		if (!expr_unary(lval)) {
@@ -1587,6 +1597,7 @@ expr_relational(int lval[]) {
 		// Change lval to "BRANCH"
 		lval[LTYPE] = BRANCH;
 		lval[LVALUE] = negop(tok);
+		lval[LREG] = 0;
 		lval[LTRUE] = lval[LFALSE] = 0;
 	}
 	return 1;
@@ -1630,7 +1641,9 @@ expr_equality(int lval[]) {
 		// Change lval to "BRANCH"
 		lval[LTYPE] = BRANCH;
 		lval[LVALUE] = negop(tok);
-		lval[LTRUE] = lval[LFALSE] = 0;
+		lval[LREG] = 0;
+		lval[LTRUE] = 0;
+		lval[LFALSE] = 0;
 	}
 	return 1;
 }
@@ -1713,41 +1726,35 @@ expr_or(int *lval) {
  *
  */
 expr_land(int lval[]) {
-	register int lbl;
-	int once;
+	int lfalse;
 
 	// Load lval
 	if (!expr_or(lval))
 		return 0;
 
-	once = 1;
+	if (!omatch("&&"))
+		return 1;
+
+	// lval must be BRANCH
+	if (lval[LTYPE] != BRANCH) {
+		loadlval(lval, -1);
+		lval[LTYPE] = BRANCH;
+		lval[LVALUE] = TOK_JEQ;
+		// keep `LREG`
+		lval[LTRUE] = 0;
+		lval[LFALSE] = 0;
+	}
+	// adopt LFALSE
+	if (lval[LFALSE] == 0)
+		lval[LFALSE] = ++nxtlabel; // need an initial final LFALSE
+	lfalse = lval[LFALSE];
+
 	while (1) {
-		// Locate operation
-		if (!omatch("&&"))
-			return 1;
+		// emit peephole
+		gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+		freelval(lval);
 
-		if (once) {
-			// One time only: process lval and jump
-
-			// lval must be BRANCH
-			if (lval[LTYPE] != BRANCH) {
-				loadlval(lval, 0);
-				freelval(lval);
-				lval[LTYPE] = BRANCH;
-				lval[LVALUE] = TOK_BEQ;
-				lval[LTRUE] = lval[LFALSE] = 0;
-			}
-
-			if (!lval[LFALSE])
-				lval[LFALSE] = ++nxtlabel;
-			lbl = lval[LFALSE];
-
-			// Mark done
-			once = 0;
-		}
-
-		// postprocess last lval
-		gencode_L(lval[LVALUE], lval[LFALSE]);
+		// emit LTRUE if referenced
 		if (lval[LTRUE])
 			fprintf(outhdl, "_%d:", lval[LTRUE]);
 
@@ -1759,16 +1766,21 @@ expr_land(int lval[]) {
 
 		// lval must be BRANCH
 		if (lval[LTYPE] != BRANCH) {
-			loadlval(lval, 0);
-			freelval(lval);
+			loadlval(lval, -1);
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_BEQ;
-			lval[LTRUE] = lval[LFALSE] = 0;
+			lval[LVALUE] = TOK_JEQ;
+			// keep `LREG`
+			lval[LTRUE] = 0;
+			lval[LFALSE] = 0;
 		}
 
+		// cascade jumps
 		if (lval[LFALSE])
-			fprintf(outhdl, "_%d=_%d\n", lval[LFALSE], lbl);
-		lval[LFALSE] = lbl;
+			fprintf(outhdl, "_%d=_%d\n", lval[LFALSE], lfalse);
+		lval[LFALSE] = lfalse;
+
+		if (!omatch("&&"))
+			return 1;
 	}
 }
 
@@ -1776,41 +1788,37 @@ expr_land(int lval[]) {
  *
  */
 expr_lor(int lval[]) {
-	register int lbl;
-	int once;
+	int ltrue;
 
 	// Load lval
 	if (!expr_land(lval))
 		return 0;
 
-	once = 1;
+	if (!omatch("||"))
+		return 1;
+
+	    // lval must be BRANCH
+	    if (lval[LTYPE] != BRANCH) {
+		    loadlval(lval, -1);
+		    lval[LTYPE] = BRANCH;
+		    lval[LVALUE] = TOK_JEQ;
+		    // keep `LREG`
+		    lval[LTRUE] = 0;
+		    lval[LFALSE] = 0;
+	    }
+
+	// adopt LTRUE
+	if (!lval[LTRUE])
+		lval[LTRUE] = ++nxtlabel; // need an initial final LTRUE
+	ltrue = lval[LTRUE];
+
 	while (1) {
-		// Locate operation
-		if (!omatch("||"))
-			return 1;
+		// emit peephole
+		lval[LVALUE] = negop(lval[LVALUE]);
+		gencode_branch(lval[LVALUE], lval[LREG], lval[LTRUE]);
+		freelval(lval);
 
-		if (once) {
-			// One time only: process lval and jump
-
-			// lval must be BRANCH
-			if (lval[LTYPE] != BRANCH) {
-				loadlval(lval, 0);
-				freelval(lval);
-				lval[LTYPE] = BRANCH;
-				lval[LVALUE] = TOK_BEQ;
-				lval[LTRUE] = lval[LFALSE] = 0;
-			}
-
-			if (!lval[LTRUE])
-				lval[LTRUE] = ++nxtlabel;
-			lbl = lval[LTRUE];
-
-			// Mark done
-			once = 0;
-		}
-
-		// postprocess last lval
-		gencode_L(negop(lval[LVALUE]), lval[LTRUE]);
+		// emit LFALSE if referenced
 		if (lval[LFALSE])
 			fprintf(outhdl, "_%d:", lval[LFALSE]);
 
@@ -1822,16 +1830,21 @@ expr_lor(int lval[]) {
 
 		// lval must be BRANCH
 		if (lval[LTYPE] != BRANCH) {
-			loadlval(lval, 0);
-			freelval(lval);
+			loadlval(lval, -1);
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_BEQ;
-			lval[LTRUE] = lval[LFALSE] = 0;
+			lval[LVALUE] = TOK_JEQ;
+			// keep `LREG`
+			lval[LTRUE] = 0;
+			lval[LFALSE] = 0;
 		}
 
+		// cascade jumps
 		if (lval[LTRUE])
-			fprintf(outhdl, "_%d=_%d\n", lval[LTRUE], lbl);
-		lval[LTRUE] = lbl;
+			fprintf(outhdl, "_%d=_%d\n", lval[LTRUE], ltrue);
+		lval[LTRUE] = ltrue;
+
+		if (!omatch("||"))
+			return 1;
 	}
 }
 
@@ -1852,16 +1865,17 @@ expr_ternary(register int lval[]) {
 		freelval(lval);
 		lval[LTYPE] = BRANCH;
 		lval[LVALUE] = TOK_BEQ;
+		lval[LREG] = 0;
 		lval[LTRUE] = lval[LFALSE] = 0;
 	}
 	// alloc labels (copy to variable because of `loadlval()`
 	int lfalse;
+	if (!lval[LFALSE])
+		lval[LFALSE] = ++nxtlabel;
 	lfalse = lval[LFALSE];
-	if (!lfalse)
-		lfalse = ++nxtlabel;
 
 	// process 'true' variant
-	gencode_L(lval[LVALUE], lfalse);
+	gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
 	if (lval[LTRUE])
 		fprintf(outhdl, "_%d:", lval[LTRUE]);
 	expression(lval);
@@ -2122,12 +2136,12 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		if (lval[LTYPE] == BRANCH) {
 			if (!lval[LFALSE])
 				lval[LFALSE] = ++nxtlabel;
-			gencode_L(lval[LVALUE], lval[LFALSE]);
+			gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		} else {
 			loadlval(lval, 0);
 			lval[LFALSE] = ++nxtlabel;
 			lval[LTRUE] = 0;
-			gencode_L(TOK_BEQ, lval[LFALSE]);
+			gencode_branch(TOK_BEQ, lval[LREG], lval[LFALSE]);
 		}
 		if (lval[LTRUE])
 			fprintf(outhdl, "_%d:", lval[LTRUE]);
@@ -2168,12 +2182,14 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		if (lval[LTYPE] == BRANCH) {
 			if (!lval[LFALSE])
 				lval[LFALSE] = ++nxtlabel;
-			gencode_L(lval[LVALUE], lval[LFALSE]);
+			gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		} else {
 			loadlval(lval, 0);
+			lval[LVALUE] = TOK_JEQ;
+			// keep `LREG`
 			lval[LFALSE] = ++nxtlabel;
 			lval[LTRUE] = 0;
-			gencode_L(TOK_BEQ, lval[LFALSE]);
+			gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		}
 		if (lval[LTRUE])
 			fprintf(outhdl, "_%d:", lval[LTRUE]);
@@ -2201,7 +2217,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 				fprintf(outhdl, "_%d=_%d\n", lval[LTRUE], lbl1);
 			else
 				lval[LTRUE] = lbl1;
-			gencode_L(negop(lval[LVALUE]), lval[LTRUE]);
+			gencode_branch(negop(lval[LVALUE]), lval[LREG], lval[LTRUE]);
 			if (lval[LFALSE])
 				fprintf(outhdl, "_%d:", lval[LFALSE]);
 		} else {
@@ -2237,12 +2253,14 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 					lval[LFALSE] = ++nxtlabel;
 				if (!lval[LTRUE])
 					lval[LTRUE] = ++nxtlabel;
-				gencode_L(lval[LVALUE], lval[LFALSE]);
+				gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
 			} else {
+				loadlval(lval, 0);
+				lval[LVALUE] = TOK_JEQ;
+				// keep `LREG`
 				lval[LFALSE] = ++nxtlabel;
 				lval[LTRUE] = ++nxtlabel;
-				loadlval(lval, 0);
-				gencode_L(TOK_BEQ, lval[LFALSE]);
+				gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
 			}
 			freelval(lval);
 		}
@@ -2335,7 +2353,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		expression(lval);
 		freelval(lval);
 		if (r != reguse)
-			fatal("register leak");
+			warning("register leak");
 		semicolon();
 	} else
 		semicolon();
