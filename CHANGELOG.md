@@ -8,12 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
-2020-06-07 09:28:51 Adapt `expr_land()` ("&&") and `expr_lor()` ("||") to risc instructions.
+2020-06-08 00:49:39 FIX: `reglock` includes `regresvd`.
+                    `reglock` is the soft (local) version of `regresvd` (global).
+2020-06-08 00:49:12 Adapt `expr_land()` ("&&") and `expr_lor()` ("||") to risc instructions.
                     `LTYPE=BRANCH` now uses `lval[LREG]` as register containing the condition.
                     Added `jeq/jne` risc instructions.
-2020-06-07 21:04:29 Fixed makefile stage3.
+2020-06-07 21:04:29 FIX: makefile stage3.
                     .xo3 as stage3 extension results in a different hasttable causing linker to load in different order.
-2020-06-07 19:16:22 Fixed unary "!".
+2020-06-07 19:16:22 FIX: unary "!".
                     Need to invert last instruction AND all prior by swapping T/F labels.
 2020-06-06 01:18:01 Adapt `step()` to risc instructions.
                     Split into `prestep()` and `poststep()`.
