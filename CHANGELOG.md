@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-09 21:38:38 Adapt unary `"-"` and `"~"` to risc instructions.
+                    Added `neg/not` risc instructions.
 2020-06-09 21:03:40 Simplify cascading in `expr_assign()`.
                     Also, continue with lvalue, not rvalue.
                     Added `and/or` risc instructions.

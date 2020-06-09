@@ -1371,8 +1371,13 @@ expr_unary(register int lval[]) {
 		if (isConstant(lval))
 			lval[LVALUE] = ~lval[LVALUE];
 		else {
-			loadlval(lval, 0);
-			gencode_R(TOK_NOT, -1, lval[LREG]);
+			loadlval(lval, -1);
+			freelval(lval);
+			int reg;
+			reg = allocreg();
+			gencode_risclval(TOK_NOT, reg, lval);
+			// continue with new register
+			lval[LREG] = reg;
 		}
 	} else if (match("!")) {
 		if (!expr_unary(lval)) {
@@ -1406,8 +1411,13 @@ expr_unary(register int lval[]) {
 		if (isConstant(lval))
 			lval[LVALUE] = -lval[LVALUE];
 		else {
-			loadlval(lval, 0);
-			gencode_R(TOK_NEG, -1, lval[LREG]);
+			loadlval(lval, -1);
+			freelval(lval);
+			int reg;
+			reg = allocreg();
+			gencode_risclval(TOK_NEG, reg, lval);
+			// continue with new register
+			lval[LREG] = reg;
 		}
 	} else if (match("+")) {
 		if (!expr_unary(lval)) {

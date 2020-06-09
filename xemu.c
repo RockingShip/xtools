@@ -80,6 +80,12 @@ enum {
 	OPC_PSHA = 0x27,
 	OPC_SVC = 0x0A,
 
+	OPC_NEGA = 0x38 + 0,
+	OPC_NEGB = 0x38 + 1,
+	OPC_NEGW = 0x38 + 2,
+	OPC_NOTA = 0x3c + 0,
+	OPC_NOTB = 0x3c + 1,
+	OPC_NOTW = 0x3c + 2,
 	OPC_MULA = 0x40 + 0,
 	OPC_MULB = 0x40 + 1,
 	OPC_MULW = 0x40 + 2,
@@ -177,6 +183,12 @@ void initialize(void) {
 	handles[1] = stdout;
 	handles[2] = stderr;
 
+	opc_name[OPC_NEGA] = "neg.a";
+	opc_name[OPC_NEGB] = "neg.b";
+	opc_name[OPC_NEGW] = "neg.w";
+	opc_name[OPC_NOTA] = "not.a";
+	opc_name[OPC_NOTB] = "not.b";
+	opc_name[OPC_NOTW] = "not.w";
 	opc_name[OPC_MULA] = "mul.a";
 	opc_name[OPC_MULB] = "mul.b";
 	opc_name[OPC_MULW] = "mul.w";
@@ -401,6 +413,12 @@ void disp_opc(uint16_t pc) {
 	case OPC_SVC:
 		printf("%s %02x%02x\n", opc_name[image[pc + 0]], image[pc + 1], image[pc + 2]);
 		break;
+	case OPC_NEGA:
+	case OPC_NEGB:
+	case OPC_NEGW:
+	case OPC_NOTA:
+	case OPC_NOTB:
+	case OPC_NOTW:
 	case OPC_MULA:
 	case OPC_MULB:
 	case OPC_MULW:
@@ -907,6 +925,16 @@ void run(uint16_t inisp) {
 			}
 
 			switch (opc) {
+			case OPC_NEGA:
+			case OPC_NEGB:
+			case OPC_NEGW:
+				regs[lreg] = -ea;
+				break;
+			case OPC_NOTA:
+			case OPC_NOTB:
+			case OPC_NOTW:
+				regs[lreg] = ~ea;
+				break;
 			case OPC_MULA:
 			case OPC_MULB:
 			case OPC_MULW:
