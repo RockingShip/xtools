@@ -184,8 +184,8 @@ enum {
 	TOK_PSHA,
 	TOK_LD,
 	TOK_ST,
-	TOK_JEQ,
-	TOK_JNE,
+	TOK_JZ,
+	TOK_JNZ,
 	TOK_SGT,
 	TOK_SLT,
 };
@@ -618,8 +618,8 @@ genopc(int opc) {
 	case TOK_POPR: fprintf(outhdl, "\tpopr"); break;
 	case TOK_LD: fprintf(outhdl, "\tld"); break;
 	case TOK_ST: fprintf(outhdl, "\tst"); break;
-	case TOK_JEQ: fprintf(outhdl, "\tjeq"); break;
-	case TOK_JNE: fprintf(outhdl, "\tjne"); break;
+	case TOK_JZ: fprintf(outhdl, "\tjz"); break;
+	case TOK_JNZ: fprintf(outhdl, "\tjnz"); break;
 	case TOK_SGT: fprintf(outhdl, "\tsgt"); break;
 	case TOK_SLT: fprintf(outhdl, "\tslt"); break;
 	}
@@ -762,7 +762,7 @@ gencode_risc(int opc, int lreg, int lval[]) {
 }
 
 gencode_branch(int opc, int reg, int lbl) {
-	if (opc == TOK_JEQ || opc == TOK_JNE) {
+	if (opc == TOK_JZ || opc == TOK_JNZ) {
 		genopc(opc);
 		fprintf(outhdl, ".a\tr%d,_%d\n", reg, lbl);
 	} else
@@ -1141,8 +1141,8 @@ negop(register int op) {
 	case TOK_BLT: return TOK_BGE;
 	case TOK_BGE: return TOK_BLT;
 	case TOK_BLE: return TOK_BGT;
-	case TOK_JEQ: return TOK_JNE;
-	case TOK_JNE: return TOK_JEQ;
+	case TOK_JZ: return TOK_JNZ;
+	case TOK_JNZ: return TOK_JZ;
 	default: return op; // No negation
 	}
 }
@@ -1425,7 +1425,7 @@ expr_unary(register int lval[]) {
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_JNE;
+			lval[LVALUE] = TOK_JNZ;
 			// keep `LREG`
 			lval[LTRUE] = 0;
 			lval[LFALSE] = 0;
@@ -1575,16 +1575,16 @@ expr_rel(int lval[]) {
 
 	if (omatch("<=")) {
 		tok = TOK_SGT;
-		cond = TOK_JNE;
+		cond = TOK_JNZ;
 	} else if (omatch(">=")) {
 		tok = TOK_SLT;
-		cond = TOK_JNE;
+		cond = TOK_JNZ;
 	} else if (omatch("<")) {
 		tok = TOK_SLT;
-		cond = TOK_JEQ;
+		cond = TOK_JZ;
 	} else if (omatch(">")) {
 		tok = TOK_SGT;
-		cond = TOK_JEQ;
+		cond = TOK_JZ;
 	} else
 		return 1;
 
@@ -1598,7 +1598,7 @@ expr_rel(int lval[]) {
 	if (isConstant(lval) && isConstant(rval)) {
 		if (tok == TOK_SGT)
 			lval[LVALUE] = lval[LVALUE] > rval[LVALUE];
-		if (cond == TOK_JNE)
+		if (cond == TOK_JNZ)
 			lval[LVALUE] = !lval[LVALUE];
 	} else {
 		loadlval(lval, 0);
@@ -1629,9 +1629,9 @@ expr_equ(int lval[]) {
 		return 0;
 
 	if (omatch("=="))
-		tok = TOK_JNE;
+		tok = TOK_JNZ;
 	else if (omatch("!="))
-		tok = TOK_JEQ;
+		tok = TOK_JZ;
 	else
 		return 1;
 
@@ -1754,7 +1754,7 @@ expr_land(int lval[]) {
 		loadlval(lval, -1);
 		// Change lval to "BRANCH"
 		lval[LTYPE] = BRANCH;
-		lval[LVALUE] = TOK_JEQ;
+		lval[LVALUE] = TOK_JZ;
 		// keep `LREG`
 		lval[LTRUE] = 0;
 		lval[LFALSE] = 0;
@@ -1784,7 +1784,7 @@ expr_land(int lval[]) {
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_JEQ;
+			lval[LVALUE] = TOK_JZ;
 			// keep `LREG`
 			lval[LTRUE] = 0;
 			lval[LFALSE] = 0;
@@ -1818,7 +1818,7 @@ expr_lor(int lval[]) {
 		    loadlval(lval, -1);
 		    // Change lval to "BRANCH"
 		    lval[LTYPE] = BRANCH;
-		    lval[LVALUE] = TOK_JEQ;
+		    lval[LVALUE] = TOK_JZ;
 		    // keep `LREG`
 		    lval[LTRUE] = 0;
 		    lval[LFALSE] = 0;
@@ -1850,7 +1850,7 @@ expr_lor(int lval[]) {
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_JEQ;
+			lval[LVALUE] = TOK_JZ;
 			// keep `LREG`
 			lval[LTRUE] = 0;
 			lval[LFALSE] = 0;
@@ -1882,7 +1882,7 @@ expr_ternary(register int lval[]) {
 		loadlval(lval, -1);
 		// Change lval to "BRANCH"
 		lval[LTYPE] = BRANCH;
-		lval[LVALUE] = TOK_JEQ;
+		lval[LVALUE] = TOK_JZ;
 		// keep `LREG`
 		lval[LTRUE] = 0;
 		lval[LFALSE] = 0;
@@ -2160,7 +2160,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_JEQ;
+			lval[LVALUE] = TOK_JZ;
 			// keep `LREG`
 			lval[LTRUE] = 0;
 			lval[LFALSE] = ++nxtlabel;
@@ -2210,7 +2210,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_JEQ;
+			lval[LVALUE] = TOK_JZ;
 			// keep `LREG`
 			lval[LTRUE] = 0;
 			lval[LFALSE] = ++nxtlabel;
@@ -2249,7 +2249,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
 			lval[LTYPE] = BRANCH;
-			lval[LVALUE] = TOK_JNE;
+			lval[LVALUE] = TOK_JNZ;
 			// keep `LREG`
 			lval[LTRUE] = lbl1;
 			lval[LFALSE] = 0;
@@ -2289,7 +2289,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 				loadlval(lval, -1);
 				// Change lval to "BRANCH"
 				lval[LTYPE] = BRANCH;
-				lval[LVALUE] = TOK_JEQ;
+				lval[LVALUE] = TOK_JZ;
 				// keep `LREG`
 				lval[LTRUE] = ++nxtlabel;
 				lval[LFALSE] = ++nxtlabel;

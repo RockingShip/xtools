@@ -163,12 +163,12 @@ enum {
 	OPC_STOA = 0x74 + 0,
 	OPC_STOB = 0x74 + 1,
 	OPC_STOW = 0x74 + 2,
-	OPC_JEQA = 0x78 + 0,
-	OPC_JEQB = 0x78 + 1,
-	OPC_JEQW = 0x78 + 2,
-	OPC_JNEA = 0x7c + 0,
-	OPC_JNEB = 0x7c + 1,
-	OPC_JNEW = 0x7c + 2,
+	OPC_JZA = 0x78 + 0,
+	OPC_JZB = 0x78 + 1,
+	OPC_JZW = 0x78 + 2,
+	OPC_JNZA = 0x7c + 0,
+	OPC_JNZB = 0x7c + 1,
+	OPC_JNZW = 0x7c + 2,
 };
 
 /*
@@ -1631,12 +1631,12 @@ do_opcode(register int p[]) {
 		case OPC_STOA:
 		case OPC_STOB:
 		case OPC_STOW:
-		case OPC_JEQA:
-		case OPC_JEQB:
-		case OPC_JEQW:
-		case OPC_JNEA:
-		case OPC_JNEB:
-		case OPC_JNEW:
+		case OPC_JZA:
+		case OPC_JZB:
+		case OPC_JZW:
+		case OPC_JNZA:
+		case OPC_JNZB:
+		case OPC_JNZW:
 			curpos[curseg] += 4;
 			break;
 		default:
@@ -1728,12 +1728,12 @@ do_opcode(register int p[]) {
 		case OPC_STOA:
 		case OPC_STOB:
 		case OPC_STOW:
-		case OPC_JEQA:
-		case OPC_JEQB:
-		case OPC_JEQW:
-		case OPC_JNEA:
-		case OPC_JNEB:
-		case OPC_JNEW:
+		case OPC_JZA:
+		case OPC_JZB:
+		case OPC_JZW:
+		case OPC_JNZA:
+		case OPC_JNZB:
+		case OPC_JNZW:
 			need_risc();
 			curpos[curseg] += 4;
 			break;
@@ -1988,12 +1988,12 @@ initialize() {
 	add_res("st.a", OPCODE, OPC_STOA);
 	add_res("st.b", OPCODE, OPC_STOB);
 	add_res("st.w", OPCODE, OPC_STOW);
-	add_res("jeq.a", OPCODE, OPC_JEQA);
-	add_res("jeq.b", OPCODE, OPC_JEQB);
-	add_res("jeq.w", OPCODE, OPC_JEQW);
-	add_res("jne.a", OPCODE, OPC_JNEA);
-	add_res("jne.b", OPCODE, OPC_JNEB);
-	add_res("jne.w", OPCODE, OPC_JNEW);
+	add_res("jz.a", OPCODE, OPC_JZA);
+	add_res("jz.b", OPCODE, OPC_JZB);
+	add_res("jz.w", OPCODE, OPC_JZW);
+	add_res("jnz.a", OPCODE, OPC_JNZA);
+	add_res("jnz.b", OPCODE, OPC_JNZB);
+	add_res("jnz.w", OPCODE, OPC_JNZW);
 
 	// reserved words
 	add_res("illegal", OPCODE, OPC_ILLEGAL);

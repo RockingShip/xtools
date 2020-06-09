@@ -109,12 +109,12 @@ enum {
 	OPC_STOA = 0x74 + 0,
 	OPC_STOB = 0x74 + 1,
 	OPC_STOW = 0x74 + 2,
-	OPC_JEQA = 0x78 + 0,
-	OPC_JEQB = 0x78 + 1,
-	OPC_JEQW = 0x78 + 2,
-	OPC_JNEA = 0x7c + 0,
-	OPC_JNEB = 0x7c + 1,
-	OPC_JNEW = 0x7c + 2,
+	OPC_JZA = 0x78 + 0,
+	OPC_JZB = 0x78 + 1,
+	OPC_JZW = 0x78 + 2,
+	OPC_JNZA = 0x7c + 0,
+	OPC_JNZB = 0x7c + 1,
+	OPC_JNZW = 0x7c + 2,
 };
 
 /*
@@ -193,12 +193,12 @@ void initialize(void) {
 	opc_name[OPC_STOA] = "st.a";
 	opc_name[OPC_STOB] = "st.b";
 	opc_name[OPC_STOW] = "st.w";
-	opc_name[OPC_JEQA] = "jeq.a";
-	opc_name[OPC_JEQB] = "jeq.b";
-	opc_name[OPC_JEQW] = "jeq.w";
-	opc_name[OPC_JNEA] = "jne.a";
-	opc_name[OPC_JNEB] = "jne.b";
-	opc_name[OPC_JNEW] = "jne.w";
+	opc_name[OPC_JZA] = "jz.a";
+	opc_name[OPC_JZB] = "jz.b";
+	opc_name[OPC_JZW] = "jz.w";
+	opc_name[OPC_JNZA] = "jnz.a";
+	opc_name[OPC_JNZB] = "jnz.b";
+	opc_name[OPC_JNZW] = "jnz.w";
 }
 
 char *fext(char *path, char *ext, int force) {
@@ -404,12 +404,12 @@ void disp_opc(uint16_t pc) {
 	case OPC_STOA:
 	case OPC_STOB:
 	case OPC_STOW:
-	case OPC_JEQA:
-	case OPC_JEQB:
-	case OPC_JEQW:
-	case OPC_JNEA:
-	case OPC_JNEB:
-	case OPC_JNEW:
+	case OPC_JZA:
+	case OPC_JZB:
+	case OPC_JZW:
+	case OPC_JNZA:
+	case OPC_JNZB:
+	case OPC_JNZW:
 		printf("%s r%d,%02x%02x(r%d)\n", opc_name[image[pc + 0]], (image[pc + 1] >> 4) & 0xf, image[pc + 2], image[pc + 3], image[pc + 1] & 0xf);
 		break;
 	default:
@@ -970,15 +970,15 @@ void run(uint16_t inisp) {
 			case OPC_LODW:
 				lval = regs[lreg] = ea;
 				break;
-			case OPC_JEQA:
-			case OPC_JEQB:
-			case OPC_JEQW:
+			case OPC_JZA:
+			case OPC_JZB:
+			case OPC_JZW:
 				if (regs[lreg] == 0)
 					pc = ea;
 				break;
-			case OPC_JNEA:
-			case OPC_JNEB:
-			case OPC_JNEW:
+			case OPC_JNZA:
+			case OPC_JNZB:
+			case OPC_JNZW:
 				if (regs[lreg] != 0)
 					pc = ea;
 				break;
