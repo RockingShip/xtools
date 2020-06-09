@@ -134,15 +134,32 @@ enum {
 	OPC_PSHA = 0x27,
 	OPC_SVC = 0x0A,
 
+	OPC_MULA = 0x40 + 0,
+	OPC_MULB = 0x40 + 1,
+	OPC_MULW = 0x40 + 2,
+	OPC_DIVA = 0x44 + 0,
+	OPC_DIVB = 0x44 + 1,
+	OPC_DIVW = 0x44 + 2,
+	OPC_MODA = 0x48 + 0,
+	OPC_MODB = 0x48 + 1,
+	OPC_MODW = 0x48 + 2,
 	OPC_ADDA = 0x4c + 0,
 	OPC_ADDB = 0x4c + 1,
 	OPC_ADDW = 0x4c + 2,
 	OPC_SUBA = 0x50 + 0,
 	OPC_SUBB = 0x50 + 1,
 	OPC_SUBW = 0x50 + 2,
+	OPC_LSLA = 0x54 + 0,
+	OPC_LSLB = 0x54 + 1,
+	OPC_LSLW = 0x54 + 2,
+	OPC_LSRA = 0x58 + 0,
+	OPC_LSRB = 0x58 + 1,
+	OPC_LSRW = 0x58 + 2,
+OPC_ANDA = 0x5c + 0,
 	OPC_XORA = 0x60 + 0,
 	OPC_XORB = 0x60 + 1,
 	OPC_XORW = 0x60 + 2,
+OPC_ORA = 0x64 + 0,
 	OPC_SGTA = 0x68 + 0,
 	OPC_SGTB = 0x68 + 1,
 	OPC_SGTW = 0x68 + 2,
@@ -1592,12 +1609,27 @@ do_opcode(register int p[]) {
 		case OPC_STW:
 			curpos[curseg] += 5;
 			break;
+		case OPC_MULA:
+		case OPC_MULB:
+		case OPC_MULW:
+		case OPC_DIVA:
+		case OPC_DIVB:
+		case OPC_DIVW:
+		case OPC_MODA:
+		case OPC_MODB:
+		case OPC_MODW:
 		case OPC_ADDA:
 		case OPC_ADDB:
 		case OPC_ADDW:
 		case OPC_SUBA:
 		case OPC_SUBB:
 		case OPC_SUBW:
+		case OPC_LSLA:
+		case OPC_LSLB:
+		case OPC_LSLW:
+		case OPC_LSRA:
+		case OPC_LSRB:
+		case OPC_LSRW:
 		case OPC_XORA:
 		case OPC_XORB:
 		case OPC_XORW:
@@ -1678,12 +1710,27 @@ do_opcode(register int p[]) {
 			need_mem();
 			curpos[curseg] += 5;
 			break;
+		case OPC_MULA:
+		case OPC_MULB:
+		case OPC_MULW:
+		case OPC_DIVA:
+		case OPC_DIVB:
+		case OPC_DIVW:
+		case OPC_MODA:
+		case OPC_MODB:
+		case OPC_MODW:
 		case OPC_ADDA:
 		case OPC_ADDB:
 		case OPC_ADDW:
 		case OPC_SUBA:
 		case OPC_SUBB:
 		case OPC_SUBW:
+		case OPC_LSLA:
+		case OPC_LSLB:
+		case OPC_LSLW:
+		case OPC_LSRA:
+		case OPC_LSRB:
+		case OPC_LSRW:
 		case OPC_XORA:
 		case OPC_XORB:
 		case OPC_XORW:
@@ -1938,12 +1985,27 @@ initialize() {
 	curpos[CODESEG] = curpos[DATASEG] = curpos[TEXTSEG] = curpos[UDEFSEG] = 0;
 	maxpos[CODESEG] = maxpos[DATASEG] = maxpos[TEXTSEG] = maxpos[UDEFSEG] = 0;
 
+	add_res("mul.a", OPCODE, OPC_MULA);
+	add_res("mul.b", OPCODE, OPC_MULB);
+	add_res("mul.w", OPCODE, OPC_MULW);
+	add_res("div.a", OPCODE, OPC_DIVA);
+	add_res("div.b", OPCODE, OPC_DIVB);
+	add_res("div.w", OPCODE, OPC_DIVW);
+	add_res("mod.a", OPCODE, OPC_MODA);
+	add_res("mod.b", OPCODE, OPC_MODB);
+	add_res("mod.w", OPCODE, OPC_MODW);
 	add_res("add.a", OPCODE, OPC_ADDA);
 	add_res("add.b", OPCODE, OPC_ADDB);
 	add_res("add.w", OPCODE, OPC_ADDW);
 	add_res("sub.a", OPCODE, OPC_SUBA);
 	add_res("sub.b", OPCODE, OPC_SUBB);
 	add_res("sub.w", OPCODE, OPC_SUBW);
+	add_res("lsl.a", OPCODE, OPC_LSLA);
+	add_res("lsl.b", OPCODE, OPC_LSLB);
+	add_res("lsl.w", OPCODE, OPC_LSLW);
+	add_res("lsr.a", OPCODE, OPC_LSRA);
+	add_res("lsr.b", OPCODE, OPC_LSRB);
+	add_res("lsr.w", OPCODE, OPC_LSRW);
 	add_res("xor.a", OPCODE, OPC_XORA);
 	add_res("xor.b", OPCODE, OPC_XORB);
 	add_res("xor.w", OPCODE, OPC_XORW);

@@ -89,7 +89,7 @@ enum {
 	LREG,
 	LTRUE,
 	LFALSE,
-	LLAST,
+	LLAST, // LLAST=8 which generates optimized code for "[n*LLAST]"
 };
 
 /*
@@ -105,7 +105,7 @@ enum {
 	INAME,			// EA name
 	IVALUE,			// EA value/offset
 	IREG,			// EA register indirect
-	ILAST,
+	ILAST,			// ILAST=8 which generates optimized code for "[n*ILAST]"
 };
 
 /*
@@ -149,16 +149,16 @@ enum {
 
 enum {
 	TOK_ILLEGAL = 1,
-	TOK_ADD,
-	TOK_SUB,
 	TOK_MUL,
 	TOK_DIV,
 	TOK_MOD,
-	TOK_OR,
-	TOK_XOR,
-	TOK_AND,
-	TOK_LSR,
+	TOK_ADD,
+	TOK_SUB,
 	TOK_LSL,
+	TOK_LSR,
+	TOK_AND,
+	TOK_XOR,
+	TOK_OR,
 	TOK_NEG,
 	TOK_NOT,
 	TOK_LDB,
@@ -575,16 +575,16 @@ toseg(register int newseg) {
 genopc(int opc) {
 	switch (opc) {
 	case TOK_ILLEGAL: fprintf(outhdl, "\tillegal"); break;
-	case TOK_ADD : fprintf(outhdl, "\tadd"); break;
-	case TOK_SUB : fprintf(outhdl, "\tsub"); break;
 	case TOK_MUL : fprintf(outhdl, "\tmul"); break;
 	case TOK_DIV : fprintf(outhdl, "\tdiv"); break;
 	case TOK_MOD : fprintf(outhdl, "\tmod"); break;
-	case TOK_OR  : fprintf(outhdl, "\tor"); break;
-	case TOK_XOR : fprintf(outhdl, "\txor"); break;
-	case TOK_AND : fprintf(outhdl, "\tand"); break;
-	case TOK_LSR : fprintf(outhdl, "\tlsr"); break;
+	case TOK_ADD : fprintf(outhdl, "\tadd"); break;
+	case TOK_SUB : fprintf(outhdl, "\tsub"); break;
 	case TOK_LSL : fprintf(outhdl, "\tlsl"); break;
+	case TOK_LSR : fprintf(outhdl, "\tlsr"); break;
+	case TOK_AND : fprintf(outhdl, "\tand"); break;
+	case TOK_XOR : fprintf(outhdl, "\txor"); break;
+	case TOK_OR  : fprintf(outhdl, "\tor"); break;
 	case TOK_NEG : fprintf(outhdl, "\tneg"); break;
 	case TOK_NOT : fprintf(outhdl, "\tnot"); break;
 	case TOK_LDB: fprintf(outhdl, "\tldb"); break;
@@ -1160,6 +1160,20 @@ gencode_expr(int tok, register int lval[], register int rval[]) {
 		freelval(rval);
 	}
 }
+gencode_riscexpr(int tok, register int lval[], register int rval[]) {
+	// Generate code
+	if (isConstant(lval) && isConstant(rval)) {
+		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
+	} else {
+		loadlval(lval, 0);
+		if (rval[LTYPE] == BRANCH)
+			loadlval(rval, -1);
+
+		// Execute operation and release rval
+		gencode_risclval(tok, lval[LREG], rval);
+		freelval(rval);
+	}
+}
 
 /*
  * Auto increment/decrement
@@ -1253,7 +1267,7 @@ expr_postfix(register int lval[]) {
 					loadlval(lval, 0); // load if pointer
 				loadlval(lval2, 0);
 				if (lval[LSIZE] == BPW)
-					gencode_R(TOK_MUL, lval2[LREG], REG_BPW); // size index
+					gencode_risc(TOK_LSL, 0, lval2[LREG], 0, LOGBPW, 0); // size index
 				if (!lval[LREG])
 					lval[LREG] = lval2[LREG];
 				else {
@@ -1465,7 +1479,45 @@ expr_muldiv(int lval[]) {
 			return 1;
 		}
 
-		gencode_expr(tok, lval, rval);
+		if (tok != TOK_MUL) {
+			gencode_riscexpr(tok, lval, rval);
+		} else if (isConstant(lval) && isConstant(rval)) {
+			// constant
+			lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
+		} else if ((isConstant(lval) && lval[LVALUE] == 0) || (isConstant(rval) && rval[LVALUE] == 0)) {
+			// zero
+			freelval(lval);
+			freelval(rval);
+			lval[LTYPE] = ADDRESS;
+			lval[LNAME] = 0;
+			lval[LVALUE] = 0;
+			lval[LREG] = 0;
+		} else if (isConstant(lval) && lval[LVALUE] == 1) {
+			// 1*rval
+			lval[LTYPE] = rval[LTYPE];
+			lval[LSIZE] = rval[LSIZE];
+			lval[LPTR] = rval[LPTR];
+			lval[LNAME] = rval[LNAME];
+			lval[LVALUE] = rval[LVALUE];
+			lval[LREG] = rval[LREG];
+		} else if (isConstant(rval) && rval[LVALUE] == 1) {
+			// leave `lval[]` untouched
+		} else if (isConstant(rval)) {
+			// convert to shift
+			int shift;
+			for (shift=0; shift<BPW*8; shift++) {
+				if (rval[LVALUE] == (1<<shift)) {
+					loadlval(lval, 0);
+					tok = TOK_LSL;
+					gencode_risc(tok, 0, lval[LREG], 0, shift, 0);
+					break;
+				}
+			}
+			if (tok != TOK_LSL)
+				gencode_riscexpr(tok, lval, rval);
+		} else {
+			gencode_riscexpr(tok, lval, rval);
+		}
 	}
 }
 
@@ -1493,7 +1545,7 @@ expr_addsub(int lval[]) {
 			return 1;
 		}
 
-		gencode_expr(tok, lval, rval);
+		gencode_riscexpr(tok, lval, rval);
 	}
 }
 
@@ -1521,7 +1573,7 @@ expr_shift(int lval[]) {
 			return 1;
 		}
 
-		gencode_expr(tok, lval, rval);
+		gencode_riscexpr(tok, lval, rval);
 	}
 }
 
@@ -1672,7 +1724,7 @@ expr_xor(int *lval) {
 			return 1;
 		}
 
-		gencode_expr(TOK_XOR, lval, rval);
+		gencode_riscexpr(TOK_XOR, lval, rval);
 	}
 }
 
@@ -1919,6 +1971,7 @@ expr_assign(register int lval[]) {
 		exprerr();
 		return 1;
 	}
+//	if (rval[LTYPE] == BRANCH)
 	loadlval(rval, -1);
 
 	if (oper == -1) {
@@ -2054,24 +2107,6 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 	fprintf(outhdl, "_%d:", codlbl);
 	j = allocreg();
 
-/*
- *
-	; 3     return (r1 < lo || r1 >= himlo);
-
-        ldr     r5,r1
-        slt.a   r5,(r3)
-        jnz.a   r5,_3
-
-        ldr     r5,r1
-        slt.a   r5,(r4)
-        jnz.a   r5,_5
-
-_3:     ldr     r1,r12
-        jmp     _4
-_5:     ldr     r1,r0
-_4:     jmp     _1
- */
-
 	// bounds check
 	gencode_risc(TOK_LD, 0, j, 0, 0, REG_RETURN);
 	gencode_risc(TOK_SLT, 0, j, 0, lo, 0);
@@ -2082,7 +2117,7 @@ _4:     jmp     _1
 
 	// jump
 	gencode_risc(TOK_SUB, 0, REG_RETURN, 0, lo, 0);
-	gencode_R(TOK_LSL, REG_RETURN, REG_1);
+	gencode_risc(TOK_LSL, 0, REG_RETURN, 0, LOGBPW, 0);
 	gencode_risc(TOK_LD, BPW, REG_RETURN, -maplbl, 0, REG_RETURN);
 	gencode_risc(TOK_JZ, 0, 0, 0, 0, REG_RETURN);
 	freereg(j);

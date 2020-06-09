@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-09 18:14:03 Adapt `expr_muldiv()` to risc instructions.
+                    Drop multiply of power 2 and convert to `lsl`.
+                    Added `mul/div/mod/lsl/lsr` risc instructions.
 2020-06-09 14:23:41 Dropped `Bcc/CMP/JMP` instructions and condition code register.
                     Condition code register requires a lot of runtime resources.
                     On a different level it also hinders parallelism and vectoring.

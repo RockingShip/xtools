@@ -80,12 +80,27 @@ enum {
 	OPC_PSHA = 0x27,
 	OPC_SVC = 0x0A,
 
+	OPC_MULA = 0x40 + 0,
+	OPC_MULB = 0x40 + 1,
+	OPC_MULW = 0x40 + 2,
+	OPC_DIVA = 0x44 + 0,
+	OPC_DIVB = 0x44 + 1,
+	OPC_DIVW = 0x44 + 2,
+	OPC_MODA = 0x48 + 0,
+	OPC_MODB = 0x48 + 1,
+	OPC_MODW = 0x48 + 2,
 	OPC_ADDA = 0x4c + 0,
 	OPC_ADDB = 0x4c + 1,
 	OPC_ADDW = 0x4c + 2,
 	OPC_SUBA = 0x50 + 0,
 	OPC_SUBB = 0x50 + 1,
 	OPC_SUBW = 0x50 + 2,
+	OPC_LSLA = 0x54 + 0,
+	OPC_LSLB = 0x54 + 1,
+	OPC_LSLW = 0x54 + 2,
+	OPC_LSRA = 0x58 + 0,
+	OPC_LSRB = 0x58 + 1,
+	OPC_LSRW = 0x58 + 2,
 	OPC_XORA = 0x60 + 0,
 	OPC_XORB = 0x60 + 1,
 	OPC_XORW = 0x60 + 2,
@@ -156,12 +171,27 @@ void initialize(void) {
 	handles[1] = stdout;
 	handles[2] = stderr;
 
+	opc_name[OPC_MULA] = "mul.a";
+	opc_name[OPC_MULB] = "mul.b";
+	opc_name[OPC_MULW] = "mul.w";
+	opc_name[OPC_DIVA] = "div.a";
+	opc_name[OPC_DIVB] = "div.b";
+	opc_name[OPC_DIVW] = "div.w";
+	opc_name[OPC_MODA] = "mod.a";
+	opc_name[OPC_MODB] = "mod.b";
+	opc_name[OPC_MODW] = "mod.w";
 	opc_name[OPC_ADDA] = "add.a";
 	opc_name[OPC_ADDB] = "add.b";
 	opc_name[OPC_ADDW] = "add.w";
 	opc_name[OPC_SUBA] = "sub.a";
 	opc_name[OPC_SUBB] = "sub.b";
 	opc_name[OPC_SUBW] = "sub.w";
+	opc_name[OPC_LSLA] = "lsl.a";
+	opc_name[OPC_LSLB] = "lsl.b";
+	opc_name[OPC_LSLW] = "lsl.w";
+	opc_name[OPC_LSRA] = "lsr.a";
+	opc_name[OPC_LSRB] = "lsr.b";
+	opc_name[OPC_LSRW] = "lsr.w";
 	opc_name[OPC_XORA] = "xor.a";
 	opc_name[OPC_XORB] = "xor.b";
 	opc_name[OPC_XORW] = "xor.w";
@@ -359,12 +389,27 @@ void disp_opc(uint16_t pc) {
 	case OPC_SVC:
 		printf("%s %02x%02x\n", opc_name[image[pc + 0]], image[pc + 1], image[pc + 2]);
 		break;
+	case OPC_MULA:
+	case OPC_MULB:
+	case OPC_MULW:
+	case OPC_DIVA:
+	case OPC_DIVB:
+	case OPC_DIVW:
+	case OPC_MODA:
+	case OPC_MODB:
+	case OPC_MODW:
 	case OPC_ADDA:
 	case OPC_ADDB:
 	case OPC_ADDW:
 	case OPC_SUBA:
 	case OPC_SUBB:
 	case OPC_SUBW:
+	case OPC_LSLA:
+	case OPC_LSLB:
+	case OPC_LSLW:
+	case OPC_LSRA:
+	case OPC_LSRB:
+	case OPC_LSRW:
 	case OPC_XORA:
 	case OPC_XORB:
 	case OPC_XORW:
@@ -844,6 +889,21 @@ void run(uint16_t inisp) {
 			}
 
 			switch (opc) {
+			case OPC_MULA:
+			case OPC_MULB:
+			case OPC_MULW:
+				regs[lreg] *= ea;
+				break;
+			case OPC_DIVA:
+			case OPC_DIVB:
+			case OPC_DIVW:
+				regs[lreg] /= ea;
+				break;
+			case OPC_MODA:
+			case OPC_MODB:
+			case OPC_MODW:
+				regs[lreg] %= ea;
+				break;
 			case OPC_ADDA:
 			case OPC_ADDB:
 			case OPC_ADDW:
@@ -853,6 +913,16 @@ void run(uint16_t inisp) {
 			case OPC_SUBB:
 			case OPC_SUBW:
 				regs[lreg] -= ea;
+				break;
+			case OPC_LSLA:
+			case OPC_LSLB:
+			case OPC_LSLW:
+				regs[lreg] <<= ea;
+				break;
+			case OPC_LSRA:
+			case OPC_LSRB:
+			case OPC_LSRW:
+				regs[lreg] >>= ea;
 				break;
 			case OPC_XORA:
 			case OPC_XORB:
