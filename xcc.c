@@ -703,9 +703,8 @@ gencode_lval(int opc, int lreg, int lval[]) {
 }
 
 gencode_risc(int opc, int size, int lreg, int name, int ofs, int rreg) {
-	// apply any stack adjustments for SP_AUTO
-	if (rreg == REG_SP)
-		ofs = ofs - csp;
+	// sign extend
+	ofs |= -(ofs & (1 << SBIT));
 
 	genopc(opc);
 
@@ -745,6 +744,14 @@ gencode_risclval(int opc, int lreg, int lval[]) {
 	name = lval[LNAME];
 	ofs = lval[LVALUE];
 	rreg = lval[LREG];
+
+	// last-second conversion of BRANCH to value
+	if (lval[LTYPE] == BRANCH)
+		loadlval(lval, -1);
+
+	// apply any stack adjustments for SP_AUTO
+	if (rreg == REG_SP)
+		ofs = ofs - csp;
 
 	if (lval[LTYPE] == ADDRESS)
 		size = 0;
@@ -1130,16 +1137,16 @@ primary(register int lval[]) {
  */
 calc(register int left, int oper, int right) {
 	switch (oper) {
-	case TOK_OR : return (left | right);
-	case TOK_XOR: return (left ^ right);
-	case TOK_AND: return (left & right);
-	case TOK_LSR: return (left >> right);
-	case TOK_LSL: return (left << right);
-	case TOK_ADD: return (left + right);
-	case TOK_SUB: return (left - right);
 	case TOK_MUL: return (left * right);
 	case TOK_DIV: return (left / right);
 	case TOK_MOD: return (left % right);
+	case TOK_ADD: return (left + right);
+	case TOK_SUB: return (left - right);
+	case TOK_LSL: return (left << right);
+	case TOK_LSR: return (left >> right);
+	case TOK_AND: return (left & right);
+	case TOK_XOR: return (left ^ right);
+	case TOK_OR : return (left | right);
 	default: return 0;
 	}
 }
@@ -1153,21 +1160,6 @@ gencode_expr(int tok, register int lval[], register int rval[]) {
 		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
 	} else {
 		loadlval(lval, 0);
-		loadlval(rval, -1);
-
-		// Execute operation and release rval
-		gencode_R(tok, lval[LREG], rval[LREG]);
-		freelval(rval);
-	}
-}
-gencode_riscexpr(int tok, register int lval[], register int rval[]) {
-	// Generate code
-	if (isConstant(lval) && isConstant(rval)) {
-		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
-	} else {
-		loadlval(lval, 0);
-		if (rval[LTYPE] == BRANCH)
-			loadlval(rval, -1);
 
 		// Execute operation and release rval
 		gencode_risclval(tok, lval[LREG], rval);
@@ -1480,7 +1472,7 @@ expr_muldiv(int lval[]) {
 		}
 
 		if (tok != TOK_MUL) {
-			gencode_riscexpr(tok, lval, rval);
+			gencode_expr(tok, lval, rval);
 		} else if (isConstant(lval) && isConstant(rval)) {
 			// constant
 			lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
@@ -1514,9 +1506,9 @@ expr_muldiv(int lval[]) {
 				}
 			}
 			if (tok != TOK_LSL)
-				gencode_riscexpr(tok, lval, rval);
+				gencode_expr(tok, lval, rval);
 		} else {
-			gencode_riscexpr(tok, lval, rval);
+			gencode_expr(tok, lval, rval);
 		}
 	}
 }
@@ -1545,7 +1537,7 @@ expr_addsub(int lval[]) {
 			return 1;
 		}
 
-		gencode_riscexpr(tok, lval, rval);
+		gencode_expr(tok, lval, rval);
 	}
 }
 
@@ -1560,10 +1552,10 @@ expr_shift(int lval[]) {
 	while (1) {
 		int tok, rval[LLAST];
 
-		if (omatch(">>"))
-			tok = TOK_LSR;
-		else if (omatch("<<"))
+		if (omatch("<<"))
 			tok = TOK_LSL;
+		else if (omatch(">>"))
+			tok = TOK_LSR;
 		else
 			return 1;
 
@@ -1573,7 +1565,7 @@ expr_shift(int lval[]) {
 			return 1;
 		}
 
-		gencode_riscexpr(tok, lval, rval);
+		gencode_expr(tok, lval, rval);
 	}
 }
 
@@ -1616,8 +1608,6 @@ expr_rel(int lval[]) {
 			lval[LVALUE] = !lval[LVALUE];
 	} else {
 		loadlval(lval, 0);
-		if (rval[LTYPE] == BRANCH)
-			loadlval(rval, -1);
 
 		// Compare and release rval
 		gencode_risclval(tok, lval[LREG], rval);
@@ -1661,8 +1651,6 @@ expr_equ(int lval[]) {
 		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
 	} else {
 		loadlval(lval, 0);
-		if (rval[LTYPE] == BRANCH)
-			loadlval(rval, -1);
 
 		// Compare and release values
 		gencode_risclval(TOK_XOR, lval[LREG], rval);
@@ -1724,7 +1712,7 @@ expr_xor(int *lval) {
 			return 1;
 		}
 
-		gencode_riscexpr(TOK_XOR, lval, rval);
+		gencode_expr(TOK_XOR, lval, rval);
 	}
 }
 
@@ -1941,24 +1929,24 @@ expr_ternary(register int lval[]) {
  * Load a numerical expression separated by comma's
  */
 expr_assign(register int lval[]) {
-	int rval[LLAST], dest[LLAST];
+	int rval[LLAST];
 	register int oper;
 
 	if (!expr_ternary(lval))
 		return 0;
 
 	// Test for assignment
-	if (omatch("=")) oper = -1;
-	else if (match("|=")) oper = TOK_OR;
-	else if (match("^=")) oper = TOK_XOR;
-	else if (match("&=")) oper = TOK_AND;
-	else if (match("+=")) oper = TOK_ADD;
-	else if (match("-=")) oper = TOK_SUB;
+	if (omatch("=")) oper = TOK_LD;
 	else if (match("*=")) oper = TOK_MUL;
 	else if (match("/=")) oper = TOK_DIV;
 	else if (match("%=")) oper = TOK_MOD;
-	else if (match(">>=")) oper = TOK_LSR;
+	else if (match("+=")) oper = TOK_ADD;
+	else if (match("-=")) oper = TOK_SUB;
 	else if (match("<<=")) oper = TOK_LSL;
+	else if (match(">>=")) oper = TOK_LSR;
+	else if (match("&=")) oper = TOK_AND;
+	else if (match("^=")) oper = TOK_XOR;
+	else if (match("|=")) oper = TOK_OR;
 	else
 		return 1;
 
@@ -1971,38 +1959,32 @@ expr_assign(register int lval[]) {
 		exprerr();
 		return 1;
 	}
-//	if (rval[LTYPE] == BRANCH)
-	loadlval(rval, -1);
 
-	if (oper == -1) {
-		if (isRegister(lval))
-			gencode_R(TOK_LDR, lval[LREG], rval[LREG]);
-		else
-			gencode_lval(isWORD(lval) ? TOK_STW : TOK_STB, rval[LREG], lval);
-		// continue with value stored in register `rval[LREG]`
+	if (isRegister(lval)) {
+		gencode_risclval(oper, lval[LREG], rval);
+		freelval(rval);
+	} else if (oper == TOK_LD) {
+		loadlval(rval, -1); // rval needs to be register
+		gencode_risclval(TOK_ST, rval[LREG], lval);
+		freelval(rval);
+	} else {
+		int reg;
+		reg = allocreg();
+
+		// load lvalue into new register
+		gencode_risclval(TOK_LD, reg, lval);
+		// apply operator
+		gencode_risclval(oper, reg, rval);
+		freelval(rval);
+		// writeback
+		gencode_risclval(TOK_ST, reg, lval);
+
+		// continue with register
 		freelval(lval);
 		lval[LTYPE] = ADDRESS;
 		lval[LNAME] = 0;
 		lval[LVALUE] = 0;
-		lval[LREG] = rval[LREG];
-	} else {
-		// Copy lval
-		dest[LTYPE] = lval[LTYPE];
-		dest[LPTR] = lval[LPTR];
-		dest[LSIZE] = lval[LSIZE];
-		dest[LNAME] = lval[LNAME];
-		dest[LVALUE] = lval[LVALUE];
-		dest[LREG] = lval[LREG];
-
-		// load lval into reg, modify it with rval and copy result into dest
-		loadlval(lval, allocreg()); // don't reuse regs for dest
-		gencode_R(oper, lval[LREG], rval[LREG]);
-		freelval(rval);
-		// write-back
-		if (isRegister(dest))
-			gencode_R(TOK_LDR, dest[LREG], lval[LREG]);
-		else
-			gencode_lval(isWORD(lval) ? TOK_STW : TOK_STB, lval[LREG], dest);
+		lval[LREG] = reg;
 	}
 
 	return 1;

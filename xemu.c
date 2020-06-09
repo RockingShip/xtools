@@ -101,9 +101,15 @@ enum {
 	OPC_LSRA = 0x58 + 0,
 	OPC_LSRB = 0x58 + 1,
 	OPC_LSRW = 0x58 + 2,
+	OPC_ANDA = 0x5c + 0,
+	OPC_ANDB = 0x5c + 1,
+	OPC_ANDW = 0x5c + 2,
 	OPC_XORA = 0x60 + 0,
 	OPC_XORB = 0x60 + 1,
 	OPC_XORW = 0x60 + 2,
+	OPC_ORA = 0x64 + 0,
+	OPC_ORB = 0x64 + 1,
+	OPC_ORW = 0x64 + 2,
 	OPC_SGTA = 0x68 + 0,
 	OPC_SGTB = 0x68 + 1,
 	OPC_SGTW = 0x68 + 2,
@@ -192,9 +198,15 @@ void initialize(void) {
 	opc_name[OPC_LSRA] = "lsr.a";
 	opc_name[OPC_LSRB] = "lsr.b";
 	opc_name[OPC_LSRW] = "lsr.w";
+	opc_name[OPC_ANDA] = "and.a";
+	opc_name[OPC_ANDB] = "and.b";
+	opc_name[OPC_ANDW] = "and.w";
 	opc_name[OPC_XORA] = "xor.a";
 	opc_name[OPC_XORB] = "xor.b";
 	opc_name[OPC_XORW] = "xor.w";
+	opc_name[OPC_ORA] = "or.a";
+	opc_name[OPC_ORB] = "or.b";
+	opc_name[OPC_ORW] = "or.w";
 	opc_name[OPC_SGTA] = "sgt.a";
 	opc_name[OPC_SGTB] = "sgt.b";
 	opc_name[OPC_SGTW] = "sgt.w";
@@ -410,9 +422,15 @@ void disp_opc(uint16_t pc) {
 	case OPC_LSRA:
 	case OPC_LSRB:
 	case OPC_LSRW:
+	case OPC_ANDA:
+	case OPC_ANDB:
+	case OPC_ANDW:
 	case OPC_XORA:
 	case OPC_XORB:
 	case OPC_XORW:
+	case OPC_ORA:
+	case OPC_ORB:
+	case OPC_ORW:
 	case OPC_SGTA:
 	case OPC_SGTB:
 	case OPC_SGTW:
@@ -924,10 +942,20 @@ void run(uint16_t inisp) {
 			case OPC_LSRW:
 				regs[lreg] >>= ea;
 				break;
+			case OPC_ANDA:
+			case OPC_ANDB:
+			case OPC_ANDW:
+				regs[lreg] &= ea;
+				break;
 			case OPC_XORA:
 			case OPC_XORB:
 			case OPC_XORW:
 				regs[lreg] ^= ea;
+				break;
+			case OPC_ORA:
+			case OPC_ORB:
+			case OPC_ORW:
+				regs[lreg] |= ea;
 				break;
 			case OPC_SGTA:
 			case OPC_SGTB:

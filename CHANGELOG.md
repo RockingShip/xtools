@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-09 21:03:40 Simplify cascading in `expr_assign()`.
+                    Also, continue with lvalue, not rvalue.
+                    Added `and/or` risc instructions.
 2020-06-09 18:14:03 Adapt `expr_muldiv()` to risc instructions.
                     Drop multiply of power 2 and convert to `lsl`.
                     Added `mul/div/mod/lsl/lsr` risc instructions.
