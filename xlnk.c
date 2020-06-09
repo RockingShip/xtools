@@ -1201,11 +1201,11 @@ process() {
 		printf("Pass 2\n");
 
 	// generate prefix "JMP ___START"
-	datbuf[0] = 0x3F;  // opcode for JMP
+	datbuf[0] = 0x78;  // opcode for "jz.a"
 	dohash("___START", &hash);
-	datbuf[1] = name[hash * NLAST + NVALUE] >> 8; // hi
-	datbuf[2] = name[hash * NLAST + NVALUE]; // lo
-	datbuf[3] = 0; // reg
+	datbuf[1] = 0; // jz.a r0,imm(r0)
+	datbuf[2] = name[hash * NLAST + NVALUE] >> 8; // hi
+	datbuf[3] = name[hash * NLAST + NVALUE]; // lo
 	fwrite(datbuf, 1, 4, outhdl);
 
 	// process pass 2

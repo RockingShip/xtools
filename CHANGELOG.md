@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-09 14:23:41 Dropped `Bcc/CMP/JMP` instructions and condition code register.
+                    Condition code register requires a lot of runtime resources.
+                    On a different level it also hinders parallelism and vectoring.
 2020-06-09 13:21:57 Adapt `dumpsw()` to risc instructions.
                     Converted all of the `CMP/Bcc` instructions.
                     Split `gencode_risc` into `vlal[]` and raw variants.

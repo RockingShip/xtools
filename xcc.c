@@ -161,21 +161,13 @@ enum {
 	TOK_LSL,
 	TOK_NEG,
 	TOK_NOT,
-	TOK_BEQ,
-	TOK_BNE,
-	TOK_BLT,
-	TOK_BLE,
-	TOK_BGT,
-	TOK_BGE,
 	TOK_LDB,
 	TOK_LDW,
 	TOK_LDR,
 	TOK_LDA,
-	TOK_CMP,
 	TOK_TST,
 	TOK_STB,
 	TOK_STW,
-	TOK_JMP,
 	TOK_JSB,
 	TOK_RSB,
 	TOK_PSHR,
@@ -595,21 +587,13 @@ genopc(int opc) {
 	case TOK_LSL : fprintf(outhdl, "\tlsl"); break;
 	case TOK_NEG : fprintf(outhdl, "\tneg"); break;
 	case TOK_NOT : fprintf(outhdl, "\tnot"); break;
-	case TOK_BEQ  : fprintf(outhdl, "\tbeq"); break;
-	case TOK_BNE  : fprintf(outhdl, "\tbne"); break;
-	case TOK_BLT  : fprintf(outhdl, "\tblt"); break;
-	case TOK_BLE  : fprintf(outhdl, "\tble"); break;
-	case TOK_BGT  : fprintf(outhdl, "\tbgt"); break;
-	case TOK_BGE  : fprintf(outhdl, "\tbge"); break;
 	case TOK_LDB: fprintf(outhdl, "\tldb"); break;
 	case TOK_LDW: fprintf(outhdl, "\tldw"); break;
 	case TOK_LDR: fprintf(outhdl, "\tldr"); break;
 	case TOK_LDA : fprintf(outhdl, "\tlda"); break;
-	case TOK_CMP : fprintf(outhdl, "\tcmp"); break;
 	case TOK_TST : fprintf(outhdl, "\ttst"); break;
 	case TOK_STB: fprintf(outhdl, "\tstb"); break;
 	case TOK_STW: fprintf(outhdl, "\tstw"); break;
-	case TOK_JMP : fprintf(outhdl, "\tjmp"); break;
 	case TOK_JSB : fprintf(outhdl, "\tjsb"); break;
 	case TOK_RSB : fprintf(outhdl, "\trsb"); break;
 	case TOK_PSHB: fprintf(outhdl, "\tpshb"); break;
@@ -632,10 +616,10 @@ gencode(int opc) {
 	fprintf(outhdl, "\n");
 }
 
-gencode_L(int opc, int lbl) {
+gencode_L(int opc, int reg, int lbl) {
 	genopc(opc);
 
-	fprintf(outhdl, "\t_%d\n", lbl);
+	fprintf(outhdl, ".a\tr%d,_%d\n", reg, lbl);
 }
 
 gencode_R(int opc, int lreg, int rreg) {
@@ -770,13 +754,6 @@ gencode_risclval(int opc, int lreg, int lval[]) {
 		size = 1;
 
 	gencode_risc(opc, size, lreg, name, ofs, rreg);
-}
-
-gencode_branch(int opc, int reg, int lbl) {
-	if (opc == TOK_JZ || opc == TOK_JNZ) {
-		gencode_risc(opc, 0, reg, -lbl, 0, 0);
-	} else
-		gencode_L(opc, lbl);
 }
 
 /*
@@ -929,11 +906,11 @@ loadlval(register int lval[], register int reg) {
 		if (!lval[LFALSE])
 			lval[LFALSE] = ++nxtlabel;
 
-		gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+		gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		if (lval[LTRUE])
 			fprintf(outhdl, "_%d:", lval[LTRUE]);
 		gencode_R(TOK_LDR, reg, REG_1);
-		gencode_L(TOK_JMP, lblX);
+		gencode_L(TOK_JZ, 0, lblX);
 		fprintf(outhdl, "_%d:", lval[LFALSE]);
 		gencode_R(TOK_LDR, reg, REG_0);
 		fprintf(outhdl, "_%d:", lblX);
@@ -1149,23 +1126,6 @@ primary(register int lval[]) {
 }
 
 /*
- * Get the inverse of an compare
- */
-negop(register int op) {
-	switch (op) {
-	case TOK_BEQ: return TOK_BNE;
-	case TOK_BNE: return TOK_BEQ;
-	case TOK_BGT: return TOK_BLE;
-	case TOK_BLT: return TOK_BGE;
-	case TOK_BGE: return TOK_BLT;
-	case TOK_BLE: return TOK_BGT;
-	case TOK_JZ: return TOK_JNZ;
-	case TOK_JNZ: return TOK_JZ;
-	default: return op; // No negation
-	}
-}
-
-/*
  * Process a constant evaluation
  */
 calc(register int left, int oper, int right) {
@@ -1173,12 +1133,6 @@ calc(register int left, int oper, int right) {
 	case TOK_OR : return (left | right);
 	case TOK_XOR: return (left ^ right);
 	case TOK_AND: return (left & right);
-	case TOK_BEQ : return (left == right);
-	case TOK_BNE : return (left != right);
-	case TOK_BLE : return (left <= right);
-	case TOK_BGE : return (left >= right);
-	case TOK_BLT : return (left < right);
-	case TOK_BGT : return (left > right);
 	case TOK_LSR: return (left >> right);
 	case TOK_LSL: return (left << right);
 	case TOK_ADD: return (left + right);
@@ -1237,7 +1191,7 @@ prestep(register int pre, register int lval[]) {
 
 /*
  * @date 2020-06-06 00:47:25
- * Note that the condition code needs to be based to the original value or "if (!i++)" will fail when "i=0"
+ * Note that the return lval needs to be based to the original value or "if (!i++)" will fail when "i=0"
  */
 poststep(register int post, register int lval[]) {
 	register int reg, *step;
@@ -1246,21 +1200,11 @@ poststep(register int post, register int lval[]) {
 
 	if (isRegister(lval) && (reglock & (1 << lval[LREG]))) {
 		reg = allocreg();
-		if (1) {
-			// NOTE: need this variant until condition codes are dropped
-			// increment/decrement original
-			gencode_risclval(post, lval[LREG], step);
-			// copy modified original
-			gencode_risclval(TOK_LD, reg, lval);
-			// undo action on copy
-			gencode_risclval((TOK_ADD + TOK_SUB) - post, reg, step);
-		} else {
-			// copy modified original
-			gencode_risclval(TOK_LD, reg, lval);
-			// increment/decrement original
-			gencode_risclval(post, lval[LREG], step);
-		}
-		// continue with copy
+		// copy modified original
+		gencode_risclval(TOK_LD, reg, lval);
+		// increment/decrement original
+		gencode_risclval(post, lval[LREG], step);
+		// continue with copy (of original)
 		freelval(lval);
 		lval[LREG] = reg;
 	} else if (lval[LTYPE] == MEMORY) {
@@ -1433,7 +1377,7 @@ expr_unary(register int lval[]) {
 			lval[LVALUE] = !lval[LVALUE];
 		else if (lval[LTYPE] == BRANCH) {
 			// invert opcode in peephole
-			lval[LVALUE] = negop(lval[LVALUE]);
+			lval[LVALUE] = TOK_JZ + TOK_JNZ - lval[LVALUE];
 			// swap labels
 			int sav;
 			sav = lval[LTRUE];
@@ -1786,7 +1730,7 @@ expr_land(int lval[]) {
 
 	while (1) {
 		// emit peephole
-		gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+		gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		freelval(lval);
 
 		// emit LTRUE if referenced
@@ -1851,8 +1795,8 @@ expr_lor(int lval[]) {
 
 	while (1) {
 		// emit peephole
-		lval[LVALUE] = negop(lval[LVALUE]);
-		gencode_branch(lval[LVALUE], lval[LREG], lval[LTRUE]);
+		lval[LVALUE] = TOK_JZ + TOK_JNZ - lval[LVALUE];
+		gencode_L(lval[LVALUE], lval[LREG], lval[LTRUE]);
 		freelval(lval);
 
 		// emit LFALSE if referenced
@@ -1914,7 +1858,7 @@ expr_ternary(register int lval[]) {
 	lfalse = lval[LFALSE];
 
 	// condition and jump-when-false
-	gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+	gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 	freelval(lval);
 
 	// when-true expression
@@ -1926,7 +1870,7 @@ expr_ternary(register int lval[]) {
 	needtoken(":");
 	// jump to end
 	lend = ++nxtlabel;
-	gencode_L(TOK_JMP, lend);
+	gencode_L(TOK_JZ, 0, lend);
 
 	// when-false expression
 	fprintf(outhdl, "_%d:", lfalse);
@@ -2060,7 +2004,7 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 		// no cases specified
 		ptr = &sw[swbase * SLAST];
 		if (ptr[SLABEL])
-			gencode_L(TOK_JMP, ptr[SLABEL]);
+			gencode_L(TOK_JZ, 0, ptr[SLABEL]);
 		return;
 	}
 
@@ -2131,16 +2075,16 @@ _4:     jmp     _1
 	// bounds check
 	gencode_risc(TOK_LD, 0, j, 0, 0, REG_RETURN);
 	gencode_risc(TOK_SLT, 0, j, 0, lo, 0);
-	gencode_risc(TOK_JNZ, 0, j, -deflbl, 0, 0);
+	gencode_L(TOK_JNZ, j, deflbl);
 	gencode_risc(TOK_LD, 0, j, 0, 0, REG_RETURN);
 	gencode_risc(TOK_SGT, 0, j, 0, hi, 0);
-	gencode_risc(TOK_JNZ, 0, j, -deflbl, 0, 0);
+	gencode_L(TOK_JNZ, j, deflbl);
 
 	// jump
 	gencode_risc(TOK_SUB, 0, REG_RETURN, 0, lo, 0);
 	gencode_R(TOK_LSL, REG_RETURN, REG_1);
 	gencode_risc(TOK_LD, BPW, REG_RETURN, -maplbl, 0, REG_RETURN);
-	gencode_M(TOK_JMP, -1, 0, 0, REG_RETURN);
+	gencode_risc(TOK_JZ, 0, 0, 0, 0, REG_RETURN);
 	freereg(j);
 }
 
@@ -2198,7 +2142,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		if (lval[LTYPE] == BRANCH) {
 			if (!lval[LFALSE])
 				lval[LFALSE] = ++nxtlabel;
-			gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+			gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		} else {
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
@@ -2207,7 +2151,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			// keep `LREG`
 			lval[LTRUE] = 0;
 			lval[LFALSE] = ++nxtlabel;
-			gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+			gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		}
 		if (lval[LTRUE])
 			fprintf(outhdl, "_%d:", lval[LTRUE]);
@@ -2227,7 +2171,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			// F:  statement
 			// L1:
 			lbl1 = ++nxtlabel;
-			gencode_L(TOK_JMP, lbl1);
+			gencode_L(TOK_JZ, 0, lbl1);
 			fprintf(outhdl, "_%d:", lval[LFALSE]);
 			statement(swbase, returnlbl, breaklbl, contlbl, breaksp, contsp);
 			fprintf(outhdl, "_%d:", lbl1);
@@ -2248,7 +2192,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		if (lval[LTYPE] == BRANCH) {
 			if (!lval[LFALSE])
 				lval[LFALSE] = ++nxtlabel;
-			gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+			gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		} else {
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
@@ -2257,13 +2201,13 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			// keep `LREG`
 			lval[LTRUE] = 0;
 			lval[LFALSE] = ++nxtlabel;
-			gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+			gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		}
 		if (lval[LTRUE])
 			fprintf(outhdl, "_%d:", lval[LTRUE]);
 		freelval(lval);
 		statement(swbase, returnlbl, lval[LFALSE], lbl1, csp, csp);
-		gencode_L(TOK_JMP, lbl1);
+		gencode_L(TOK_JZ, 0, lbl1);
 		fprintf(outhdl, "_%d:", lval[LFALSE]);
 	} else if (amatch("do")) {
 		// @date 2020-05-19 12:37:46
@@ -2285,7 +2229,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 				fprintf(outhdl, "_%d=_%d\n", lval[LTRUE], lbl1);
 			else
 				lval[LTRUE] = lbl1;
-			gencode_branch(negop(lval[LVALUE]), lval[LREG], lval[LTRUE]);
+			gencode_L(TOK_JZ + TOK_JNZ - lval[LVALUE], lval[LREG], lval[LTRUE]);
 			if (lval[LFALSE])
 				fprintf(outhdl, "_%d:", lval[LFALSE]);
 		} else {
@@ -2296,7 +2240,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			// keep `LREG`
 			lval[LTRUE] = lbl1;
 			lval[LFALSE] = 0;
-			gencode_branch(lval[LVALUE], lval[LREG], lval[LTRUE]);
+			gencode_L(lval[LVALUE], lval[LREG], lval[LTRUE]);
 		}
 		freelval(lval);
 	} else if (amatch("for")) {
@@ -2327,7 +2271,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 					lval[LFALSE] = ++nxtlabel;
 				if (!lval[LTRUE])
 					lval[LTRUE] = ++nxtlabel;
-				gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+				gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 			} else {
 				loadlval(lval, -1);
 				// Change lval to "BRANCH"
@@ -2336,11 +2280,11 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 				// keep `LREG`
 				lval[LTRUE] = ++nxtlabel;
 				lval[LFALSE] = ++nxtlabel;
-				gencode_branch(lval[LVALUE], lval[LREG], lval[LFALSE]);
+				gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 			}
 			freelval(lval);
 		}
-		gencode_L(TOK_JMP, lval[LTRUE]);
+		gencode_L(TOK_JZ, 0, lval[LTRUE]);
 		needtoken(";");
 		fprintf(outhdl, "_%d:", lbl2);
 		blanks();
@@ -2348,11 +2292,11 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			expression(lval);
 			freelval(lval);
 		}
-		gencode_L(TOK_JMP, lbl1);
+		gencode_L(TOK_JZ, 0, lbl1);
 		needtoken(")");
 		fprintf(outhdl, "_%d:", lval[LTRUE]);
 		statement(swbase, returnlbl, lval[LFALSE], lbl1, csp, csp);
-		gencode_L(TOK_JMP, lbl2);
+		gencode_L(TOK_JZ, 0, lbl2);
 		fprintf(outhdl, "_%d:", lval[LFALSE]);
 	} else if (amatch("switch")) {
 		needtoken("(");
@@ -2361,13 +2305,13 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		loadlval(lval, REG_RETURN);
 		lbl1 = ++nxtlabel;
 		lbl2 = ++nxtlabel;
-		gencode_L(TOK_JMP, lbl1);
+		gencode_L(TOK_JZ, 0, lbl1);
 		sav_sw = swinx;
 		if (swinx >= SWMAX)
 			fatal("switch table overflow");
 		sw[swinx++ * SLAST + SLABEL] = 0; // enable default
 		statement(sav_sw, returnlbl, lbl2, contlbl, csp, contsp);
-		gencode_L(TOK_JMP, lbl2);
+		gencode_L(TOK_JZ, 0, lbl2);
 		dumpsw(sav_sw, lbl1, lbl2);
 		fprintf(outhdl, "_%d:", lbl2);
 		swinx = sav_sw;
@@ -2406,20 +2350,20 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		}
 		if (csp != 0)
 			gencode_ADJSP(- csp);
-		gencode_L(TOK_JMP, returnlbl);
+		gencode_L(TOK_JZ, 0, returnlbl);
 	} else if (amatch("break")) {
 		if (!breaklbl)
 			error("not in block");
 		if (csp != breaksp)
 			gencode_ADJSP(breaksp - csp);
-		gencode_L(TOK_JMP, breaklbl);
+		gencode_L(TOK_JZ, 0, breaklbl);
 		semicolon();
 	} else if (amatch("continue")) {
 		if (!contlbl)
 			error("not in block");
 		if (csp != contsp)
 			gencode_ADJSP(contsp - csp);
-		gencode_L(TOK_JMP, contlbl);
+		gencode_L(TOK_JZ, 0, contlbl);
 		semicolon();
 	} else if (!ch) {
 		return; // EOF

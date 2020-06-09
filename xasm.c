@@ -119,20 +119,12 @@ enum {
 	OPC_LSL = 0x1A,
 	OPC_NEG = 0x1D,
 	OPC_NOT = 0x1C,
-	OPC_BEQ = 0x38,
-	OPC_BNE = 0x37,
-	OPC_BLT = 0x34,
-	OPC_BLE = 0x33,
-	OPC_BGT = 0x36,
-	OPC_BGE = 0x35,
 	OPC_LDB = 0x04,
 	OPC_LDW = 0x01,
 	OPC_LDR = 0x11,
 	OPC_LEA = 0x03,
-	OPC_CMP = 0x10,
 	OPC_STB = 0x05,
 	OPC_STW = 0x02,
-	OPC_JMP = 0x3F,
 	OPC_JSB = 0x20,
 	OPC_RSB = 0x21,
 	OPC_PSHR = 0x23,
@@ -1591,17 +1583,7 @@ do_opcode(register int p[]) {
 		case OPC_LSR:
 		case OPC_LSL:
 		case OPC_LDR:
-		case OPC_CMP:
 			curpos[curseg] += 3;
-			break;
-		case OPC_BEQ:
-		case OPC_BNE:
-		case OPC_BLT:
-		case OPC_BLE:
-		case OPC_BGT:
-		case OPC_BGE:
-		case OPC_JMP:
-			curpos[curseg] += 4;
 			break;
 		case OPC_LDB:
 		case OPC_LDW:
@@ -1681,21 +1663,10 @@ do_opcode(register int p[]) {
 		case OPC_LSR:
 		case OPC_LSL:
 		case OPC_LDR:
-		case OPC_CMP:
 			need_reg();
 			need_comma();
 			need_reg();
 			curpos[curseg] += 3;
-			break;
-		case OPC_BEQ:
-		case OPC_BNE:
-		case OPC_BLT:
-		case OPC_BLE:
-		case OPC_BGT:
-		case OPC_BGE:
-		case OPC_JMP:
-			need_mem();
-			curpos[curseg] += 4;
 			break;
 		case OPC_LDB:
 		case OPC_LDW:
@@ -2009,20 +1980,12 @@ initialize() {
 	add_res("lsl", OPCODE, OPC_LSL);
 	add_res("neg", OPCODE, OPC_NEG);
 	add_res("not", OPCODE, OPC_NOT);
-	add_res("beq", OPCODE, OPC_BEQ);
-	add_res("bne", OPCODE, OPC_BNE);
-	add_res("blt", OPCODE, OPC_BLT);
-	add_res("ble", OPCODE, OPC_BLE);
-	add_res("bgt", OPCODE, OPC_BGT);
-	add_res("bge", OPCODE, OPC_BGE);
 	add_res("ldb", OPCODE, OPC_LDB);
 	add_res("ldw", OPCODE, OPC_LDW);
 	add_res("ldr", OPCODE, OPC_LDR);
 	add_res("lda", OPCODE, OPC_LEA);
-	add_res("cmp", OPCODE, OPC_CMP);
 	add_res("stb", OPCODE, OPC_STB);
 	add_res("stw", OPCODE, OPC_STW);
-	add_res("jmp", OPCODE, OPC_JMP);
 	add_res("jsb", OPCODE, OPC_JSB);
 	add_res("rsb", OPCODE, OPC_RSB);
 	add_res("pshr", OPCODE, OPC_PSHR);
