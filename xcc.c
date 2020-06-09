@@ -46,6 +46,7 @@ enum {
 
 enum {
 	BPW = 2,		// Bytes per word
+	LOGBPW = 1,		// 1<<LOGBPW == BPW
 	SBIT = 15,		// Bit number of signed bit
 	REGMAX = 16,		// Number of registers
 };
@@ -717,27 +718,21 @@ gencode_lval(int opc, int lreg, int lval[]) {
 	gencode_M(opc, lreg, name, ofs, rreg);
 }
 
-gencode_risc(int opc, int lreg, int lval[]) {
-	int name, ofs, rreg, size;
-	name = lval[LNAME];
-	ofs = lval[LVALUE];
-	rreg = lval[LREG];
-
+gencode_risc(int opc, int size, int lreg, int name, int ofs, int rreg) {
 	// apply any stack adjustments for SP_AUTO
 	if (rreg == REG_SP)
 		ofs = ofs - csp;
 
 	genopc(opc);
 
-	size = isWORD(lval) ? BPW : 1;
-	if (lval[LTYPE] == ADDRESS || size == 0)
+	if (size == 0)
 		fprintf(outhdl, ".a");
 	else if (size == 1)
 		fprintf(outhdl, ".b");
 	else if (size == BPW)
 		fprintf(outhdl, ".w");
 	else
-		error("unimplemented");
+		fatal("unimplemented");
 
 	fprintf(outhdl, "\tr%d,", lreg);
 	if (name) {
@@ -761,10 +756,25 @@ gencode_risc(int opc, int lreg, int lval[]) {
 	fprintf(outhdl, "\n");
 }
 
+gencode_risclval(int opc, int lreg, int lval[]) {
+	int name, ofs, rreg, size;
+	name = lval[LNAME];
+	ofs = lval[LVALUE];
+	rreg = lval[LREG];
+
+	if (lval[LTYPE] == ADDRESS)
+		size = 0;
+	else if (isWORD(lval))
+		size = BPW;
+	else
+		size = 1;
+
+	gencode_risc(opc, size, lreg, name, ofs, rreg);
+}
+
 gencode_branch(int opc, int reg, int lbl) {
 	if (opc == TOK_JZ || opc == TOK_JNZ) {
-		genopc(opc);
-		fprintf(outhdl, ".a\tr%d,_%d\n", reg, lbl);
+		gencode_risc(opc, 0, reg, -lbl, 0, 0);
 	} else
 		gencode_L(opc, lbl);
 }
@@ -935,7 +945,7 @@ loadlval(register int lval[], register int reg) {
 		lval[LVALUE] = 0;
 		lval[LREG] = reg;
 	} else
-		error("unimplemented");
+		fatal("unimplemented");
 }
 
 /*
@@ -1206,15 +1216,15 @@ prestep(register int pre, register int lval[]) {
 	step = isINTPTR(lval) ? lval_BPW : lval_1;
 
 	if (isRegister(lval) && (reglock & (1 << lval[LREG]))) {
-		gencode_risc(pre, lval[LREG], step);
+		gencode_risclval(pre, lval[LREG], step);
 	} else if (lval[LTYPE] == MEMORY) {
 		// load memory into register
 		reg = allocreg();
-		gencode_risc(TOK_LD, reg, lval);
+		gencode_risclval(TOK_LD, reg, lval);
 		// increment/decrement
-		gencode_risc(pre, reg, step);
+		gencode_risclval(pre, reg, step);
 		// store
-		gencode_risc(TOK_ST, reg, lval);
+		gencode_risclval(TOK_ST, reg, lval);
 
 		freelval(lval);
 		lval[LTYPE] = ADDRESS;
@@ -1239,16 +1249,16 @@ poststep(register int post, register int lval[]) {
 		if (1) {
 			// NOTE: need this variant until condition codes are dropped
 			// increment/decrement original
-			gencode_risc(post, lval[LREG], step);
+			gencode_risclval(post, lval[LREG], step);
 			// copy modified original
-			gencode_risc(TOK_LD, reg, lval);
+			gencode_risclval(TOK_LD, reg, lval);
 			// undo action on copy
-			gencode_risc((TOK_ADD + TOK_SUB) - post, reg, step);
+			gencode_risclval((TOK_ADD + TOK_SUB) - post, reg, step);
 		} else {
 			// copy modified original
-			gencode_risc(TOK_LD, reg, lval);
+			gencode_risclval(TOK_LD, reg, lval);
 			// increment/decrement original
-			gencode_risc(post, lval[LREG], step);
+			gencode_risclval(post, lval[LREG], step);
 		}
 		// continue with copy
 		freelval(lval);
@@ -1256,13 +1266,13 @@ poststep(register int post, register int lval[]) {
 	} else if (lval[LTYPE] == MEMORY) {
 		// load memory into register
 		reg = allocreg();
-		gencode_risc(TOK_LD, reg, lval);
+		gencode_risclval(TOK_LD, reg, lval);
 		// increment/decrement
-		gencode_risc(post, reg, step);
+		gencode_risclval(post, reg, step);
 		// write to memory
-		gencode_risc(TOK_ST, reg, lval);
+		gencode_risclval(TOK_ST, reg, lval);
 		// undo increment/decrement to get original condition code
-		gencode_risc((TOK_ADD + TOK_SUB - post), reg, step);
+		gencode_risclval((TOK_ADD + TOK_SUB - post), reg, step);
 
 		freelval(lval);
 		lval[LTYPE] = ADDRESS;
@@ -1614,7 +1624,7 @@ expr_rel(int lval[]) {
 			loadlval(rval, -1);
 
 		// Compare and release rval
-		gencode_risc(tok, lval[LREG], rval);
+		gencode_risclval(tok, lval[LREG], rval);
 		freelval(rval);
 
 		// Change lval to "BRANCH"
@@ -1659,7 +1669,7 @@ expr_equ(int lval[]) {
 			loadlval(rval, -1);
 
 		// Compare and release values
-		gencode_risc(TOK_XOR, lval[LREG], rval);
+		gencode_risclval(TOK_XOR, lval[LREG], rval);
 		freelval(rval);
 
 		// Change lval to "BRANCH"
@@ -2099,15 +2109,38 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 	// generate code (use j as reg)
 	fprintf(outhdl, "_%d:", codlbl);
 	j = allocreg();
-	gencode_I(TOK_LDA, j, lo);
-	gencode_R(TOK_SUB, REG_RETURN, j);
-	gencode_L(TOK_BLT, deflbl);
-	gencode_I(TOK_LDA, j, hi - lo);
-	gencode_R(TOK_CMP, REG_RETURN, j);
-	gencode_L(TOK_BGT, deflbl);
-	gencode_R(TOK_MUL, REG_RETURN, REG_BPW);
-	gencode_M(TOK_LDW, j, -maplbl, 0, REG_RETURN);
-	gencode_M(TOK_JMP, -1, 0, 0, j);
+
+/*
+ *
+	; 3     return (r1 < lo || r1 >= himlo);
+
+        ldr     r5,r1
+        slt.a   r5,(r3)
+        jnz.a   r5,_3
+
+        ldr     r5,r1
+        slt.a   r5,(r4)
+        jnz.a   r5,_5
+
+_3:     ldr     r1,r12
+        jmp     _4
+_5:     ldr     r1,r0
+_4:     jmp     _1
+ */
+
+	// bounds check
+	gencode_risc(TOK_LD, 0, j, 0, 0, REG_RETURN);
+	gencode_risc(TOK_SLT, 0, j, 0, lo, 0);
+	gencode_risc(TOK_JNZ, 0, j, -deflbl, 0, 0);
+	gencode_risc(TOK_LD, 0, j, 0, 0, REG_RETURN);
+	gencode_risc(TOK_SGT, 0, j, 0, hi, 0);
+	gencode_risc(TOK_JNZ, 0, j, -deflbl, 0, 0);
+
+	// jump
+	gencode_risc(TOK_SUB, 0, REG_RETURN, 0, lo, 0);
+	gencode_R(TOK_LSL, REG_RETURN, REG_1);
+	gencode_risc(TOK_LD, BPW, REG_RETURN, -maplbl, 0, REG_RETURN);
+	gencode_M(TOK_JMP, -1, 0, 0, REG_RETURN);
 	freereg(j);
 }
 

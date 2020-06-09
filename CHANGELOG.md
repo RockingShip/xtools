@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-09 13:21:57 Adapt `dumpsw()` to risc instructions.
+                    Converted all of the `CMP/Bcc` instructions.
+                    Split `gencode_risc` into `vlal[]` and raw variants.
 2020-06-09 02:25:05 Optimize `expr_rel()` and `expr_equ()`.
                     Suppress `loadlval(rval)` if `gencode_risc()` supports ea.
 2020-06-09 01:19:36 Rename to `jz/jnz`.
