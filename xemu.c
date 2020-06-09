@@ -886,7 +886,8 @@ void run(uint16_t inisp) {
 			break;
 		case OPC_STOB: {
 			// risc
-			register int lreg, ea;
+			register int lreg;
+			register int16_t ea;
 			lreg = (image[pc] & 0xF0) >> 4;
 			ea = regs[image[pc++] & 0xF];
 			ea += image[pc++] << 8;
@@ -902,7 +903,8 @@ void run(uint16_t inisp) {
 		}
 		case OPC_STOW: {
 			// risc
-			register int lreg, ea;
+			register int lreg;
+			register int16_t ea;
 			lreg = (image[pc] & 0xF0) >> 4;
 			ea = regs[image[pc++] & 0xF];
 			ea += image[pc++] << 8;
@@ -918,7 +920,8 @@ void run(uint16_t inisp) {
 			break;
 		}
 		default: {
-			register int lreg, ea;
+			register int lreg;
+			register int16_t ea;
 
 			// RISC instructions
 			// 32<-----------------------------------------------------<0

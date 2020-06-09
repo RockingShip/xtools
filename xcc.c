@@ -992,6 +992,14 @@ number(register int *val) {
 		while (ctype[ch] & CISDIGIT)
 			i = i * 10 + (gch() - '0');
 	}
+
+	/*
+	 * @date 2020-06-09 02:02:25
+	 * 0x8000 becomes 32768 (32-bits) and -32768 (16-bits).
+	 */
+	// sign extend
+	i |= -(i & (1 << SBIT));
+
 	*val = i;
 	return 1;
 }
@@ -1602,7 +1610,8 @@ expr_rel(int lval[]) {
 			lval[LVALUE] = !lval[LVALUE];
 	} else {
 		loadlval(lval, 0);
-		loadlval(rval, -1);
+		if (rval[LTYPE] == BRANCH)
+			loadlval(rval, -1);
 
 		// Compare and release rval
 		gencode_risc(tok, lval[LREG], rval);
@@ -1646,7 +1655,8 @@ expr_equ(int lval[]) {
 		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
 	} else {
 		loadlval(lval, 0);
-		loadlval(rval, -1);
+		if (rval[LTYPE] == BRANCH)
+			loadlval(rval, -1);
 
 		// Compare and release values
 		gencode_risc(TOK_XOR, lval[LREG], rval);
