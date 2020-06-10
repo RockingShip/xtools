@@ -148,7 +148,8 @@ enum {
  */
 
 enum {
-	TOK_ILLEGAL = 1,
+	TOK_NEG = 1,
+	TOK_NOT,
 	TOK_MUL,
 	TOK_DIV,
 	TOK_MOD,
@@ -159,8 +160,8 @@ enum {
 	TOK_AND,
 	TOK_XOR,
 	TOK_OR,
-	TOK_NEG,
-	TOK_NOT,
+	TOK_SGT,
+	TOK_SLT,
 	TOK_LDB,
 	TOK_LDW,
 	TOK_LDR,
@@ -168,10 +169,6 @@ enum {
 	TOK_TST,
 	TOK_STB,
 	TOK_STW,
-	TOK_JSB,
-	TOK_RSB,
-	TOK_PSHR,
-	TOK_POPR,
 	TOK_PSHB,
 	TOK_PSHW,
 	TOK_PSHA,
@@ -179,8 +176,11 @@ enum {
 	TOK_ST,
 	TOK_JZ,
 	TOK_JNZ,
-	TOK_SGT,
-	TOK_SLT,
+	TOK_JSB,
+	TOK_RSB,
+	TOK_PUSH,
+	TOK_PSHR,
+	TOK_POPR,
 };
 
 /*
@@ -574,7 +574,8 @@ toseg(register int newseg) {
  */
 genopc(int opc) {
 	switch (opc) {
-	case TOK_ILLEGAL: fprintf(outhdl, "\tillegal"); break;
+	case TOK_NEG : fprintf(outhdl, "\tneg"); break;
+	case TOK_NOT : fprintf(outhdl, "\tnot"); break;
 	case TOK_MUL : fprintf(outhdl, "\tmul"); break;
 	case TOK_DIV : fprintf(outhdl, "\tdiv"); break;
 	case TOK_MOD : fprintf(outhdl, "\tmod"); break;
@@ -585,8 +586,8 @@ genopc(int opc) {
 	case TOK_AND : fprintf(outhdl, "\tand"); break;
 	case TOK_XOR : fprintf(outhdl, "\txor"); break;
 	case TOK_OR  : fprintf(outhdl, "\tor"); break;
-	case TOK_NEG : fprintf(outhdl, "\tneg"); break;
-	case TOK_NOT : fprintf(outhdl, "\tnot"); break;
+	case TOK_SGT: fprintf(outhdl, "\tsgt"); break;
+	case TOK_SLT: fprintf(outhdl, "\tslt"); break;
 	case TOK_LDB: fprintf(outhdl, "\tldb"); break;
 	case TOK_LDW: fprintf(outhdl, "\tldw"); break;
 	case TOK_LDR: fprintf(outhdl, "\tldr"); break;
@@ -599,14 +600,13 @@ genopc(int opc) {
 	case TOK_PSHB: fprintf(outhdl, "\tpshb"); break;
 	case TOK_PSHW: fprintf(outhdl, "\tpshw"); break;
 	case TOK_PSHA: fprintf(outhdl, "\tpsha"); break;
-	case TOK_PSHR: fprintf(outhdl, "\tpshr"); break;
-	case TOK_POPR: fprintf(outhdl, "\tpopr"); break;
 	case TOK_LD: fprintf(outhdl, "\tld"); break;
 	case TOK_ST: fprintf(outhdl, "\tst"); break;
 	case TOK_JZ: fprintf(outhdl, "\tjz"); break;
 	case TOK_JNZ: fprintf(outhdl, "\tjnz"); break;
-	case TOK_SGT: fprintf(outhdl, "\tsgt"); break;
-	case TOK_SLT: fprintf(outhdl, "\tslt"); break;
+	case TOK_PUSH: fprintf(outhdl, "\tpush"); break;
+	case TOK_PSHR: fprintf(outhdl, "\tpshr"); break;
+	case TOK_POPR: fprintf(outhdl, "\tpopr"); break;
 	}
 }
 
@@ -617,21 +617,7 @@ gencode(int opc) {
 }
 
 gencode_L(int opc, int reg, int lbl) {
-	genopc(opc);
-
-	fprintf(outhdl, ".a\tr%d,_%d\n", reg, lbl);
-}
-
-gencode_R(int opc, int lreg, int rreg) {
-	// sign extend
-	lreg |= -(lreg & (1 << SBIT));
-
-	genopc(opc);
-	fputc('\t', outhdl);
-
-	if (lreg >= 0)
-		fprintf(outhdl, "r%d,", lreg);
-	fprintf(outhdl, "r%d\n", rreg);
+	gencode_risc(opc, 0, reg, -lbl, 0, 0);
 }
 
 gencode_I(int opc, int lreg, int imm) {
@@ -651,12 +637,10 @@ gencode_ADJSP(int imm) {
 	// sign extend
 	imm |= -(imm & (1 << SBIT));
 
-	if (imm == BPW)
-		fprintf(outhdl, "\tadd\tr%d,r%d\n", REG_SP, REG_BPW);
-	else if (imm == -BPW)
-		fprintf(outhdl, "\tsub\tr%d,r%d\n", REG_SP, REG_BPW);
-	else
-		fprintf(outhdl, "\tlda\tr%d,%d(r%d)\n", REG_SP, imm, REG_SP);
+	if (imm > 0)
+		gencode_risc(TOK_ADD, 0, REG_SP, 0, imm, 0);
+	else if (imm < 0)
+		gencode_risc(TOK_SUB, 0, REG_SP, 0, -imm, 0);
 }
 
 gencode_M(int opc, int lreg, int name, int ofs, int rreg) {
@@ -753,7 +737,7 @@ gencode_risclval(int opc, int lreg, int lval[]) {
 	if (rreg == REG_SP)
 		ofs = ofs - csp;
 
-	if (lval[LTYPE] == ADDRESS)
+	if (lval[LTYPE] == ADDRESS || lval[LTYPE] == FUNCTION)
 		size = 0;
 	else if (isWORD(lval))
 		size = BPW;
@@ -850,17 +834,6 @@ loadlval(register int lval[], register int reg) {
 	reg |= -(reg & (1 << SBIT));
 
 	if (lval[LTYPE] == ADDRESS) {
-		// try to relocate offset to register
-		if (lval[LREG] == 0) {
-			if (lval[LVALUE] == 1) {
-				lval[LREG] = REG_1;
-				lval[LVALUE] = 0;
-			} else if (lval[LVALUE] == BPW) {
-				lval[LREG] = REG_BPW;
-				lval[LVALUE] = 0;
-			}
-		}
-
 		// assign resulting register
 		if (reg > 0) {
 			// loaded into fixed register
@@ -881,13 +854,7 @@ loadlval(register int lval[], register int reg) {
 		}
 
 		// generate code
-		if (lval[LNAME] || lval[LVALUE]) {
-			gencode_lval(TOK_LDA, reg, lval);
-		} else if (lval[LREG] == 0) {
-			gencode_R(TOK_LDR, reg, REG_0);
-		} else {
-			gencode_R(TOK_LDR, reg, lval[LREG]);
-		}
+		gencode_risclval(TOK_LD, reg, lval);
 
 		// Modify lval
 		lval[LTYPE] = ADDRESS;
@@ -898,7 +865,7 @@ loadlval(register int lval[], register int reg) {
 		freelval(lval);
 		if (reg <= 0)
 			reg = allocreg();
-		gencode_lval(isWORD(lval) ? TOK_LDW : TOK_LDB, reg, lval);
+		gencode_risclval(TOK_LD, reg, lval);
 
 		lval[LTYPE] = ADDRESS;
 		lval[LNAME] = 0;
@@ -916,10 +883,10 @@ loadlval(register int lval[], register int reg) {
 		gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		if (lval[LTRUE])
 			fprintf(outhdl, "_%d:", lval[LTRUE]);
-		gencode_R(TOK_LDR, reg, REG_1);
+		gencode_risc(TOK_LD, 0, reg, 0, 1, 0);
 		gencode_L(TOK_JZ, 0, lblX);
 		fprintf(outhdl, "_%d:", lval[LFALSE]);
-		gencode_R(TOK_LDR, reg, REG_0);
+		gencode_risc(TOK_LD, 0, reg, 0, 0, 0);
 		fprintf(outhdl, "_%d:", lblX);
 
 		freelval(lval);
@@ -1109,9 +1076,9 @@ primary(register int lval[]) {
 		lval[LVALUE] = 0;
 		lval[LREG] = allocreg();
 
-		gencode_M(TOK_LDW, lval[LREG], 0, BPW, REG_AP);
-		gencode_R(TOK_SUB, lval[LREG], REG_BPW);
-		gencode_R(TOK_DIV, lval[LREG], REG_BPW);
+		gencode_risc(TOK_LD, BPW, lval[LREG], 0, BPW, REG_AP);
+		gencode_risc(TOK_SUB, 0, lval[LREG], 0, BPW, 0);
+		gencode_risc(TOK_LSR, 0, lval[LREG], 0, LOGBPW, 0);
 		return 1;
 	} else if (sname == argvid) {
 		exprerr();
@@ -1273,10 +1240,11 @@ expr_postfix(register int lval[]) {
 						// register in lval is locked and needs to be made writable
 						freelval(lval);
 						reg = allocreg();
-						gencode_R(TOK_LDR, reg, lval[LREG]);
+						gencode_risclval(TOK_LD, reg, lval);
+						// continue with new register
 						lval[LREG] = reg;
 					}
-					gencode_R(TOK_ADD, lval[LREG], lval2[LREG]);
+					gencode_risclval(TOK_ADD, lval[LREG], lval2);
 					freelval(lval2);
 				}
 			}
@@ -1296,18 +1264,9 @@ expr_postfix(register int lval[]) {
 		while (ch != ')') {
 			// Get expression
 			expr_assign(lval2);
-			if (isConstant(lval2)) {
-				gencode_I(TOK_PSHA, -1, lval2[LVALUE]);
-			} else {
-				if (lval2[LTYPE] == BRANCH)
-					loadlval(lval2, 0);
-				freelval(lval2);
 				// Push onto stack
-				if (lval2[LTYPE] != MEMORY)
-					gencode_lval(TOK_PSHA, -1, lval2);
-				else
-					gencode_lval(isWORD(lval2) ? TOK_PSHW : TOK_PSHB, -1, lval2);
-			}
+			gencode_risclval(TOK_PUSH, REG_SP, lval2);
+			freelval(lval2);
 			// increment ARGC
 			csp -= BPW;
 			argc += BPW;
@@ -1317,15 +1276,14 @@ expr_postfix(register int lval[]) {
 		}
 		needtoken(")");
 		// Push ARGC
-		gencode_I(TOK_PSHA, -1, argc);
+		gencode_risc(TOK_PUSH, 0, REG_SP, 0, argc, 0);
 
 		// call
-		gencode_lval(TOK_JSB, -1, lval);
+		gencode_risclval(TOK_JSB, REG_SP, lval);
 		freelval(lval);
 
 		// Pop args
-		csp = 0; // `gencode_M` will subtract csp from sp.
-		gencode_M(TOK_LDA, REG_SP, 0, argc, REG_SP);
+		gencode_risc(TOK_ADD, 0, REG_SP, 0, argc, 0);
 
 		csp = sav_csp;
 
@@ -2763,10 +2721,10 @@ declfunc(int clas) {
 	fprintf(outhdl, "_");
 	symname(sname);
 	fprintf(outhdl, "::");
-	gencode_R(TOK_LDR, REG_RETURN, REG_SP);
+	gencode_risc(TOK_LD, 0, REG_RETURN, 0, 0, REG_SP);
 	pshrlbl = ++nxtlabel;
-	gencode_M(TOK_PSHR, -1, -pshrlbl, 0, 0);
-	gencode_R(TOK_LDR, REG_AP, 1);
+	gencode_risc(TOK_PSHR, 0, REG_SP, -pshrlbl, 0, 0);
+	gencode_risc(TOK_LD, 0, REG_AP, 0, 0, REG_RETURN);
 
 	// get parameters
 	needtoken("(");
@@ -2807,7 +2765,7 @@ declfunc(int clas) {
 			int reg;
 			reg = allocreg();
 			reglock |= (1 << reg);
-			gencode_M((sym[ISIZE] == BPW || sym[IPTR]) ? TOK_LDW : TOK_LDB, reg, sym[INAME], sym[IVALUE], sym[IREG]);
+			gencode_risc(TOK_LD, (sym[ISIZE] == BPW || sym[IPTR]) ? BPW : 1, reg, sym[INAME], sym[IVALUE], sym[IREG]);
 			sym[ITYPE] = ADDRESS;
 			sym[INAME] = 0;
 			sym[IVALUE] = 0;
@@ -2921,15 +2879,15 @@ initialize() {
 	lval_1[LPTR] = 0;
 	lval_1[LSIZE] = 0;
 	lval_1[LNAME] = 0;
-	lval_1[LVALUE] = 0;
-	lval_1[LREG] = REG_1;
+	lval_1[LVALUE] = 1;
+	lval_1[LREG] = 0;
 
 	lval_BPW[LTYPE] = ADDRESS;
 	lval_BPW[LPTR] = 0;
 	lval_BPW[LSIZE] = 0;
 	lval_BPW[LNAME] = 0;
-	lval_BPW[LVALUE] = 0;
-	lval_BPW[LREG] = REG_BPW;
+	lval_BPW[LVALUE] = BPW;
+	lval_BPW[LREG] = 0;
 }
 
 /*

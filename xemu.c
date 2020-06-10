@@ -43,8 +43,10 @@ enum {
  */
 
 enum {
-	BPW = 2,			// Bytes per word
-	SBIT = 15,			// Bit number of signed bit
+	BPW = 2,		// Bytes per word
+	SBIT = 15,		// Bit number of signed bit
+	REGMAX = 16,		// Number of registers
+	REG_SP = 15,		// Default stack pointer
 };
 
 /*
@@ -125,6 +127,7 @@ enum {
 	OPC_LODA = 0x70 + 0,
 	OPC_LODB = 0x70 + 1,
 	OPC_LODW = 0x70 + 2,
+	// NOTE: The following opcode block is reserved for instructions conceptually unknown to untangle
 	OPC_STOA = 0x74 + 0,
 	OPC_STOB = 0x74 + 1,
 	OPC_STOW = 0x74 + 2,
@@ -134,6 +137,21 @@ enum {
 	OPC_JNZA = 0x7c + 0,
 	OPC_JNZB = 0x7c + 1,
 	OPC_JNZW = 0x7c + 2,
+	OPC_JSBA = 0x80 + 0,
+	OPC_JSBB = 0x80 + 1,
+	OPC_JSBW = 0x80 + 2,
+	OPC_RSBA = 0x84 + 0,
+	OPC_RSBB = 0x84 + 1,
+	OPC_RSBW = 0x84 + 2,
+	OPC_PUSHA = 0x88 + 0,
+	OPC_PUSHB = 0x88 + 1,
+	OPC_PUSHW = 0x88 + 2,
+	OPC_PSHRA = 0x8c + 0,
+	OPC_PSHRB = 0x8c + 1,
+	OPC_PSHRW = 0x8c + 2,
+	OPC_POPRA = 0x90 + 0,
+	OPC_POPRB = 0x90 + 1,
+	OPC_POPRW = 0x90 + 2,
 };
 
 /*
@@ -146,7 +164,7 @@ char     **inpargv;             /* argv[] for emulated */
 uint16_t lowestSP;              /* Lowest encountered SP */
 int      monitor;               /* Monitor -m specified */
 char     *opc_name[128];        /* texual descriptors of opcodes */
-int16_t  regs[16];              /* registers */
+int16_t  regs[REGMAX];              /* registers */
 int      verbose;               /* Verbose -v specified */
 
 void initialize(void) {
@@ -237,6 +255,21 @@ void initialize(void) {
 	opc_name[OPC_JNZA] = "jnz.a";
 	opc_name[OPC_JNZB] = "jnz.b";
 	opc_name[OPC_JNZW] = "jnz.w";
+	opc_name[OPC_JSBA] = "jsb.a";
+	opc_name[OPC_JSBB] = "jsb.b";
+	opc_name[OPC_JSBW] = "jsb.w";
+	opc_name[OPC_RSBA] = "rsb.a";
+	opc_name[OPC_RSBB] = "rsb.b";
+	opc_name[OPC_RSBW] = "rsb.w";
+	opc_name[OPC_PUSHA] = "push.a";
+	opc_name[OPC_PUSHB] = "push.b";
+	opc_name[OPC_PUSHW] = "push.w";
+	opc_name[OPC_PSHRA] = "pshr.a";
+	opc_name[OPC_PSHRB] = "pshr.b";
+	opc_name[OPC_PSHRW] = "pshr.w";
+	opc_name[OPC_POPRA] = "popr.a";
+	opc_name[OPC_POPRB] = "popr.b";
+	opc_name[OPC_POPRW] = "popr.w";
 }
 
 char *fext(char *path, char *ext, int force) {
@@ -467,6 +500,21 @@ void disp_opc(uint16_t pc) {
 	case OPC_JNZA:
 	case OPC_JNZB:
 	case OPC_JNZW:
+	case OPC_JSBA:
+	case OPC_JSBB:
+	case OPC_JSBW:
+	case OPC_RSBA:
+	case OPC_RSBB:
+	case OPC_RSBW:
+	case OPC_PUSHA:
+	case OPC_PUSHB:
+	case OPC_PUSHW:
+	case OPC_PSHRA:
+	case OPC_PSHRB:
+	case OPC_PSHRW:
+	case OPC_POPRA:
+	case OPC_POPRB:
+	case OPC_POPRW:
 		printf("%s r%d,%02x%02x(r%d)\n", opc_name[image[pc + 0]], (image[pc + 1] >> 4) & 0xf, image[pc + 2], image[pc + 3], image[pc + 1] & 0xf);
 		break;
 	default:
@@ -482,7 +530,7 @@ void disp_dump(uint16_t pc) {
 
 	disp_reg(pc);
 	printf("\nStackdump:\n");
-	loc = regs[15];
+	loc = regs[REG_SP];
 	for (i = 0; i < 4; i++, loc += 0x10) {
 		printf("%04x:", loc);
 		cp = &image[loc];
@@ -585,7 +633,7 @@ void do_svc(uint16_t pc, int16_t id) {
 		if (ctrl[2] == SEEK_SET)
 			ofs &= 0xffff;
 		else
-			ofs |= -(ofs & (1 << 15));
+			ofs |= -(ofs & (1 << SBIT));
 
 		if (ctrl[0] < 0 || ctrl[0] >= FILEMAX || !handles[ctrl[0]])
 			regs[1] = -1;
@@ -679,16 +727,16 @@ void run(uint16_t inisp) {
 
 	/* initialize */
 	pc = 0;
-	for (i = 0; i < 16; i++)
+	for (i = 0; i < REGMAX; i++)
 		regs[i] = 0;
-	regs[15] = inisp;
+	regs[REG_SP] = inisp;
 	while (1) {
 		if (monitor) {
 			disp_reg(pc);
 			disp_opc(pc);
 		}
-		if (!lowestSP || (regs[15] & 0xffff) < lowestSP) {
-			lowestSP = regs[15];
+		if (!lowestSP || (regs[REG_SP] & 0xffff) < lowestSP) {
+			lowestSP = regs[REG_SP];
 			if (monitor)
 				printf("lowestSP=%04x\n", lowestSP);
 		}
@@ -799,22 +847,22 @@ void run(uint16_t inisp) {
 			rval += regs[image[pc++] & 0xF];
 			/* process */
 			if (opc == OPC_PSHA) {
-				regs[15] -= BPW;
-				cp = &image[regs[15] & 0xffff]; /* get -(SP) */
+				regs[REG_SP] -= BPW;
+				cp = &image[regs[REG_SP] & 0xffff]; /* get -(SP) */
 				cp[0] = rval >> 8;
 				cp[1] = rval;
 			} else if (opc == OPC_PSHB) {
 				cp = &image[rval & 0xffff];
 				rval = cp[0];
-				regs[15] -= BPW;
-				cp = &image[regs[15] & 0xffff]; /* get -(SP) */
+				regs[REG_SP] -= BPW;
+				cp = &image[regs[REG_SP] & 0xffff]; /* get -(SP) */
 				cp[0] = rval >> 8;
 				cp[1] = rval;
 			} else if (opc == OPC_PSHW) {
 				cp = &image[rval & 0xffff];
 				rval = (cp[0] << 8) + (cp[1] & 0xFF);
-				regs[15] -= BPW;
-				cp = &image[regs[15] & 0xffff]; /* get -(SP) */
+				regs[REG_SP] -= BPW;
+				cp = &image[regs[REG_SP] & 0xffff]; /* get -(SP) */
 				cp[0] = rval >> 8;
 				cp[1] = rval;
 			}
@@ -825,16 +873,16 @@ void run(uint16_t inisp) {
 			rval += image[pc++] & 0xFF;
 			rval += regs[image[pc++] & 0xF];
 			/* save old PC */
-			regs[15] -= BPW;
-			cp = &image[regs[15] & 0xffff]; /* get -(SP) */
+			regs[REG_SP] -= BPW;
+			cp = &image[regs[REG_SP] & 0xffff]; /* get -(SP) */
 			cp[0] = pc >> 8;
 			cp[1] = pc;
 			/* update PC */
 			pc = rval & 0xffff;
 			break;
 		case OPC_RSB:
-			cp = &image[regs[15] & 0xffff]; /* get (SP)+ */
-			regs[15] += BPW;
+			cp = &image[regs[REG_SP] & 0xffff]; /* get (SP)+ */
+			regs[REG_SP] += BPW;
 			pc = ((cp[0] << 8) + (cp[1] & 0xFF)) & 0xffff;
 			break;
 		case OPC_PSHR:
@@ -842,10 +890,10 @@ void run(uint16_t inisp) {
 			rval = image[pc++] << 8;
 			rval += image[pc++] & 0xFF;
 			/* push regs */
-			for (i = 0; i < 16; i++) {
+			for (i = 0; i < REGMAX; i++) {
 				if (rval & 0x0001) {
-					regs[15] -= BPW;
-					cp = &image[regs[15] & 0xffff]; /* get -(SP) */
+					regs[REG_SP] -= BPW;
+					cp = &image[regs[REG_SP] & 0xffff]; /* get -(SP) */
 					lval = regs[i];
 					cp[0] = lval >> 8;
 					cp[1] = lval;
@@ -858,10 +906,10 @@ void run(uint16_t inisp) {
 			rval = image[pc++] << 8;
 			rval += image[pc++] & 0xFF;
 			/* push regs */
-			for (i = 15; i >= 0; i--) {
+			for (i = REG_SP; i >= 0; i--) {
 				if (rval & 0x8000) {
-					cp = &image[regs[15] & 0xffff]; /* get (SP)+ */
-					regs[15] += BPW;
+					cp = &image[regs[REG_SP] & 0xffff]; /* get (SP)+ */
+					regs[REG_SP] += BPW;
 					regs[i] = (cp[0] << 8) + (cp[1] & 0xFF);
 				}
 				rval <<= 1;
@@ -1011,6 +1059,61 @@ void run(uint16_t inisp) {
 			case OPC_JNZW:
 				if (regs[lreg] != 0)
 					pc = ea;
+				break;
+			case OPC_PUSHA:
+			case OPC_PUSHB:
+			case OPC_PUSHW:
+				regs[lreg] -= BPW;
+				cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
+				cp[0] = ea >> 8;
+				cp[1] = ea;
+				break;
+			case OPC_JSBA:
+			case OPC_JSBB:
+			case OPC_JSBW:
+				assert(lreg == REG_SP);
+				/* save old PC */
+				regs[lreg] -= BPW;
+				cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
+				cp[0] = pc >> 8;
+				cp[1] = pc;
+				/* update PC */
+				pc = ea & 0xffff;
+				break;
+			case OPC_RSBA:
+			case OPC_RSBB:
+			case OPC_RSBW:
+				cp = &image[regs[lreg] & 0xffff]; // get EA of (lreg)+
+				regs[lreg] += BPW;
+				pc = ((cp[0] << 8) + (cp[1] & 0xFF)) & 0xffff;
+				break;
+			case OPC_PSHRA:
+			case OPC_PSHRB:
+			case OPC_PSHRW:
+				/* push regs */
+				for (i = 0; i < REGMAX; i++) {
+					if (ea & 0x0001) {
+						regs[lreg] -= BPW;
+						cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
+						lval = regs[i];
+						cp[0] = lval >> 8;
+						cp[1] = lval;
+					}
+					ea >>= 1;
+				}
+				break;
+			case OPC_POPRA:
+			case OPC_POPRB:
+			case OPC_POPRW:
+				/* push regs */
+				for (i = REGMAX-1; i >= 0; i--) {
+					if (ea & 0x8000) {
+						cp = &image[regs[lreg] & 0xffff]; // get EA of (lreg)+
+						regs[lreg] += BPW;
+						regs[i] = (cp[0] << 8) + (cp[1] & 0xFF);
+					}
+					ea <<= 1;
+				}
 				break;
 			default:
 				pc -= 3;

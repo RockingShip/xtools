@@ -179,6 +179,7 @@ enum {
 	OPC_LODA = 0x70 + 0,
 	OPC_LODB = 0x70 + 1,
 	OPC_LODW = 0x70 + 2,
+	// NOTE: The following opcode block is reserved for instructions conceptually unknown to untangle
 	OPC_STOA = 0x74 + 0,
 	OPC_STOB = 0x74 + 1,
 	OPC_STOW = 0x74 + 2,
@@ -188,6 +189,21 @@ enum {
 	OPC_JNZA = 0x7c + 0,
 	OPC_JNZB = 0x7c + 1,
 	OPC_JNZW = 0x7c + 2,
+	OPC_JSBA = 0x80 + 0,
+	OPC_JSBB = 0x80 + 1,
+	OPC_JSBW = 0x80 + 2,
+	OPC_RSBA = 0x84 + 0,
+	OPC_RSBB = 0x84 + 1,
+	OPC_RSBW = 0x84 + 2,
+	OPC_PUSHA = 0x88 + 0,
+	OPC_PUSHB = 0x88 + 1,
+	OPC_PUSHW = 0x88 + 2,
+	OPC_PSHRA = 0x8c + 0,
+	OPC_PSHRB = 0x8c + 1,
+	OPC_PSHRW = 0x8c + 2,
+	OPC_POPRA = 0x90 + 0,
+	OPC_POPRB = 0x90 + 1,
+	OPC_POPRW = 0x90 + 2,
 };
 
 /*
@@ -1673,6 +1689,21 @@ do_opcode(register int p[]) {
 		case OPC_JNZA:
 		case OPC_JNZB:
 		case OPC_JNZW:
+		case OPC_JSBA:
+		case OPC_JSBB:
+		case OPC_JSBW:
+		case OPC_RSBA:
+		case OPC_RSBB:
+		case OPC_RSBW:
+		case OPC_PUSHA:
+		case OPC_PUSHB:
+		case OPC_PUSHW:
+		case OPC_PSHRA:
+		case OPC_PSHRB:
+		case OPC_PSHRW:
+		case OPC_POPRA:
+		case OPC_POPRB:
+		case OPC_POPRW:
 			curpos[curseg] += 4;
 			break;
 		default:
@@ -1786,6 +1817,21 @@ do_opcode(register int p[]) {
 		case OPC_JNZA:
 		case OPC_JNZB:
 		case OPC_JNZW:
+		case OPC_JSBA:
+		case OPC_JSBB:
+		case OPC_JSBW:
+		case OPC_RSBA:
+		case OPC_RSBB:
+		case OPC_RSBW:
+		case OPC_PUSHA:
+		case OPC_PUSHB:
+		case OPC_PUSHW:
+		case OPC_PSHRA:
+		case OPC_PSHRB:
+		case OPC_PSHRW:
+		case OPC_POPRA:
+		case OPC_POPRB:
+		case OPC_POPRW:
 			need_risc();
 			curpos[curseg] += 4;
 			break;
@@ -2073,6 +2119,21 @@ initialize() {
 	add_res("jnz.a", OPCODE, OPC_JNZA);
 	add_res("jnz.b", OPCODE, OPC_JNZB);
 	add_res("jnz.w", OPCODE, OPC_JNZW);
+	add_res("jsb.a", OPCODE, OPC_JSBA);
+	add_res("jsb.b", OPCODE, OPC_JSBB);
+	add_res("jsb.w", OPCODE, OPC_JSBW);
+	add_res("rsb.a", OPCODE, OPC_RSBA);
+	add_res("rsb.b", OPCODE, OPC_RSBB);
+	add_res("rsb.w", OPCODE, OPC_RSBW);
+	add_res("push.a", OPCODE, OPC_PUSHA);
+	add_res("push.b", OPCODE, OPC_PUSHB);
+	add_res("push.w", OPCODE, OPC_PUSHW);
+	add_res("pshr.a", OPCODE, OPC_PSHRA);
+	add_res("pshr.b", OPCODE, OPC_PSHRB);
+	add_res("pshr.w", OPCODE, OPC_PSHRW);
+	add_res("popr.a", OPCODE, OPC_POPRA);
+	add_res("popr.b", OPCODE, OPC_POPRB);
+	add_res("popr.w", OPCODE, OPC_POPRW);
 
 	// reserved words
 	add_res("illegal", OPCODE, OPC_ILLEGAL);
