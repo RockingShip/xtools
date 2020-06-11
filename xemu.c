@@ -321,7 +321,10 @@ void disp_reg(uint16_t pc) {
 }
 
 void disp_opc(uint16_t pc) {
-		printf("%s r%d,%02x%02x(r%d)\n", opc_name[image[pc + 0]], (image[pc + 1] >> 4) & 0xf, image[pc + 2], image[pc + 3], image[pc + 1] & 0xf);
+		printf("%s r%d,%02x%02x", opc_name[image[pc + 0]], image[pc + 1] & 0xf, image[pc + 2], image[pc + 3]);
+		if ((image[pc + 1] >> 4) & 0xf)
+			printf("(r%d)", (image[pc + 1] >> 4) & 0xf);
+		putchar ('\n');
 }
 
 void disp_dump(uint16_t pc) {
@@ -550,8 +553,8 @@ void run(uint16_t inisp) {
 		// <immlo.8> <immhi.8> <eareg>.4 <lreg.4> <opcode.6> <size.2>
 
 		opc = image[pc++];
-		lreg = (image[pc] & 0xF0) >> 4;
-		ea = regs[image[pc++] & 0xF];
+		lreg = image[pc] & 0xF;
+		ea = regs[(image[pc++] >> 4) & 0xF];
 		ea += image[pc++] << 8;
 		ea += image[pc++] & 0xFF;
 

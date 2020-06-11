@@ -1402,7 +1402,7 @@ need_risc() {
 		rreg = 0;
 
 	// registers
-	sto_data(lreg << 4 | rreg, 1);
+	sto_data(rreg << 4 | lreg, 1);
 	// immediate
 	if (lval[LTYPE] == 0) {
 		sto_data(0, BPW);
