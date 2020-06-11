@@ -1236,13 +1236,10 @@ expr_postfix(register int lval[]) {
 					 * having a second indirect register removes the following code.
 					 * however, a single register is a much simpler implementation.
 					 */
-					if ((1<<lval[LREG]) & reglock) {
+					if ((1 << lval[LREG]) & reglock) {
 						// register in lval is locked and needs to be made writable
-						freelval(lval);
-						reg = allocreg();
-						gencode_risclval(TOK_LD, reg, lval);
-						// continue with new register
-						lval[LREG] = reg;
+						// @date 2020-06-10 22:44:40
+						loadlval(lval,0);
 					}
 					gencode_risclval(TOK_ADD, lval[LREG], lval2);
 					freelval(lval2);
