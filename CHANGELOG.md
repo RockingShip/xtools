@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-11 20:55:53 Restore usage `add_res()``.
+                    Constructing strings goes against simplicity.
 2020-06-11 20:49:23 Set `NAMEMAX` to 0x821=2081.
                     2081 is prime and has 3 bits set.
                     Multiply can be easily replaced with `"(x<<11) + (x<<5) + x"`
