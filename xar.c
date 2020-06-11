@@ -26,7 +26,7 @@
 
 enum {
 	FILEMAX = 50,		// Size of filetable
-	NAMEMAX = 2003,		// Size of nametable !!! MUST BE PRIME !!!
+	NAMEMAX = 0x821,	// Size of nametable. 3 bits set. !!! MUST BE PRIME !!!
 	PATHMAX = 80,		// length of filename
 };
 

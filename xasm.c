@@ -25,7 +25,7 @@
  */
 
 enum {
-	NAMEMAX = 2503,		// Size of nametable !!! MUST BE PRIME !!!
+	NAMEMAX = 0x821,	// Size of nametable. 3 bits set. !!! MUST BE PRIME !!!
 	PATHMAX = 80,		// Length of filename
 	SBUFMAX = 512,		// Size of source buffer
 };
@@ -1714,25 +1714,6 @@ add_res(char *opc, int typ, int val) {
 	p = &names[hash * NLAST];
 	p[NTYPE] = typ;
 	p[NVALUE] = val;
-}
-
-/*
- * Add opcode to nametable
- */
-add_opcode(char *opc, int val) {
-	char name[8];
-	int len;
-
-	len = strlen(opc);
-	strcpy(name, opc);
-	name[len++] = '.';
-	name[len + 1] = 0;
-	name[len] = 'a';
-	add_res(name, OPCODE, val + 0);
-	name[len] = 'b';
-	add_res(name, OPCODE, val + 1);
-	name[len] = 'w';
-	add_res(name, OPCODE, val + 2);
 }
 
 /*

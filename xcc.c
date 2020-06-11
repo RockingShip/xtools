@@ -33,7 +33,7 @@
  */
 
 enum {
-	NAMEMAX = 1511,		// Size of nametable !!! MUST BE PRIME !!!
+	NAMEMAX = 0x821,	// Size of nametable. 3 bits set. !!! MUST BE PRIME !!!
 	PATHMAX = 80,		// Length of filename
 	SBUFMAX = 256,		// Size of source buffer
 	SWMAX = 100,		// Number of switch cases
