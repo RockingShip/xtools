@@ -1133,15 +1133,19 @@ expr_postfix(register int lval[]) {
 			if (isConstant(rval)) {
 				if (lval[LTYPE] == MEMORY)
 					loadlval(lval, 0); // load if pointer
-				// Subscript is a constant
+				// Subscript is a constant + pointer arithmetic
 				lval[LVALUE] += rval[LVALUE] * lval[LSIZE];
 			} else {
 				// Subscript is a variable/complex-expression
 				if (lval[LTYPE] == MEMORY)
 					loadlval(lval, 0); // load if pointer
+
+				// pointer arithmetic
 				loadlval(rval, 0);
-				if (lval[LSIZE] == BPW)
+				if (isINTPTR(lval))
 					gencode(TOK_LSL, 0, rval[LREG], 0, LOGBPW, 0); // size index
+
+				// merge
 				if (!lval[LREG])
 					lval[LREG] = rval[LREG];
 				else {
@@ -1415,6 +1419,16 @@ expr_addsub(int lval[]) {
 		if (!expr_muldiv(rval)) {
 			exprerr();
 			return 1;
+		}
+
+		// pointer arithmetic, scale index
+		if (isINTPTR(lval)) {
+			if (isConstant(rval)) {
+				rval[LVALUE] <<= LOGBPW;
+			} else {
+				loadlval(rval, 0);
+				gencode(TOK_LSL, 0, rval[LREG], 0, LOGBPW, 0);
+			}
 		}
 
 		gencode_expr(tok, lval, rval);
@@ -1812,23 +1826,23 @@ expr_ternary(register int lval[]) {
  */
 expr_assign(register int lval[]) {
 	int rval[LLAST];
-	register int oper;
+	register int opc;
 
 	if (!expr_ternary(lval))
 		return 0;
 
 	// Test for assignment
-	if (omatch("=")) oper = TOK_LD;
-	else if (match("*=")) oper = TOK_MUL;
-	else if (match("/=")) oper = TOK_DIV;
-	else if (match("%=")) oper = TOK_MOD;
-	else if (match("+=")) oper = TOK_ADD;
-	else if (match("-=")) oper = TOK_SUB;
-	else if (match("<<=")) oper = TOK_LSL;
-	else if (match(">>=")) oper = TOK_LSR;
-	else if (match("&=")) oper = TOK_AND;
-	else if (match("^=")) oper = TOK_XOR;
-	else if (match("|=")) oper = TOK_OR;
+	if (omatch("=")) opc = TOK_LD;
+	else if (match("*=")) opc = TOK_MUL;
+	else if (match("/=")) opc = TOK_DIV;
+	else if (match("%=")) opc = TOK_MOD;
+	else if (match("+=")) opc = TOK_ADD;
+	else if (match("-=")) opc = TOK_SUB;
+	else if (match("<<=")) opc = TOK_LSL;
+	else if (match(">>=")) opc = TOK_LSR;
+	else if (match("&=")) opc = TOK_AND;
+	else if (match("^=")) opc = TOK_XOR;
+	else if (match("|=")) opc = TOK_OR;
 	else
 		return 1;
 
@@ -1842,10 +1856,20 @@ expr_assign(register int lval[]) {
 		return 1;
 	}
 
+	// pointer arithmetic, scale index
+	if ((opc == TOK_ADD || opc == TOK_SUB) && isINTPTR(lval)) {
+		if (isConstant(rval)) {
+			rval[LVALUE] <<= LOGBPW;
+		} else {
+			loadlval(rval, 0);
+			gencode(TOK_LSL, 0, rval[LREG], 0, LOGBPW, 0);
+		}
+	}
+
 	if (isRegister(lval)) {
-		gencode_lval(oper, lval[LREG], rval);
+		gencode_lval(opc, lval[LREG], rval);
 		freelval(rval);
-	} else if (oper == TOK_LD) {
+	} else if (opc == TOK_LD) {
 		loadlval(rval, -1); // rval needs to be register
 		gencode_lval(TOK_ST, rval[LREG], lval);
 		freelval(rval);
@@ -1856,7 +1880,7 @@ expr_assign(register int lval[]) {
 		// load lvalue into new register
 		gencode_lval(TOK_LD, reg, lval);
 		// apply operator
-		gencode_lval(oper, reg, rval);
+		gencode_lval(opc, reg, rval);
 		freelval(rval);
 		// writeback
 		gencode_lval(TOK_ST, reg, lval);

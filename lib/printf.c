@@ -115,7 +115,7 @@ printf(int anchor) {
 	register char *cmd;
 	register int *args;
 
-	args = &anchor + ARGC * BPW;
+	args = &anchor + ARGC;
 	cmd = *--args;
 	_doprt(obuf, cmd, args);
 	fputs(obuf, stdout);
@@ -126,7 +126,7 @@ fprintf(int anchor) {
 	register char *cmd;
 	register int hdl, *args;
 
-	args = &anchor + ARGC * BPW;
+	args = &anchor + ARGC;
 	hdl = *--args;
 	cmd = *--args;
 	_doprt(obuf, cmd, args);
@@ -137,7 +137,7 @@ sprintf(int anchor) {
 	register char *cmd, *buf;
 	register int hdl, *args;
 
-	args = &anchor + ARGC * BPW;
+	args = &anchor + ARGC;
 	buf = *--args;
 	cmd = *--args;
 	_doprt(buf, cmd, args);
