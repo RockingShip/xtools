@@ -1569,6 +1569,8 @@ expr_rel(int lval[]) {
 	if (isConstant(lval) && isConstant(rval)) {
 		if (tok == TOK_SGT)
 			lval[LVALUE] = lval[LVALUE] > rval[LVALUE];
+		else
+			lval[LVALUE] = lval[LVALUE] < rval[LVALUE];
 		if (cond == TOK_JNZ)
 			lval[LVALUE] = !lval[LVALUE];
 	} else {

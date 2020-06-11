@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-11 00:55:59 FIX: constant folding for `<` in `expr_rel()`.
 2020-06-10 22:44:40 FIX: `expr_postfix()` use `loadlval()` to merge registers.
                     Old code did not always work well with arrays.
 2020-06-10 00:08:25 Adapt remaining flow-control to risc instructions.
