@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [Release 2.2.0] 2020-06-11 21:47:31
+
+Classic RISC architecture and absence of condition code register.
+16 data+8 flow machine instructions and 3 addressing modes.
+Traditional-C. Keep it simple.
+
+Known issues:
+- Variable initializers
+
 ```
 2020-06-11 21:27:29 Pointer Arithmetic.
                     Currently assuming only for `"int*"`.
@@ -113,5 +122,6 @@ Dropped preprocessor and pointers to functions.
 
 Initial commit.
 
-[Unreleased]: /RockingShip/xtools/compare/v2.1.0...HEAD
+[Unreleased]: /RockingShip/xtools/compare/v2.2.0...HEAD
+[2.2.0]: /RockingShip/xtools-historic/compare/v2.1.0...v2.2.0
 [2.1.0]: /RockingShip/xtools-historic/compare/v2.0.0...v2.1.0

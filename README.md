@@ -3,7 +3,13 @@
 X-C-Compiler/Assembler/Linker/Archiver.
 
 An experimental toolchain for supporting the [untangle](/RockingShip/untangle) fractal engine.
-It is based on the remastered 1991 school project [XTools-historic](/RockingShip/xtools-historic).
+It is based on the remastered 1991 school project [xtools-historic](/RockingShip/xtools-historic).
+
+Features:
+ - Classic RISC architecture and absence of condition code register.
+ - 16 data+8 flow machine instructions and 3 addressing modes.
+ - Traditional-C. Keep it simple.
+ - `xcc` has `2931` lines of code which translates to 7669 lines of assembler. (v2.2.0)
 
 Known issues:
  - Pointer arithmetic. The only working variant is "&arr[ofs]"`.
@@ -34,7 +40,7 @@ The biggest challenge was fitting the toolchain in 64k memory with most instruct
  - No heap or ```malloc()``` (pointer stack based variables might be an alternative)
  - Peephole optimiser
 
-### `"-Dint=long"`
+### Native `"-Dint=long"`
 
 `xtools` needs to be compilable and runnable without modifications both with a native compiler (`gcc`) and the sandboxed self.
 `xcc` assumes and is designed for architectures where `"sizeof(int)>=sizeof(char*))"` because pointers are stores in ints.
@@ -115,8 +121,64 @@ Revised output:
     1 ffffffffffffffff 1 ffffffffffffffff
 ```
   
-  
-  
+### Instruction set
+
+Syntax: opcode reg,immediate(index)
+
+opcode+0 ea=immediate+regs[index]
+opcode+1 ea=memory.byte[immediate+regs[index]]
+opcode+2 ea=memory.word[immediate+regs[index]]
+
+```
+    RISC instructions
+    32<-----------------------------------------------------<0
+    <immlo.8> <immhi.8> <eareg>.4 <lreg.4> <opcode.6> <size.2>
+```
+
+reg = reg <operation> ea
+
+| OPC  | HEX  | Description
+|:----:|:----:|:----|
+| SVC  | 0x04 | reg = reg <systemcall> ea
+| MUL  | 0x10 | reg *= ea
+| DIV  | 0x14 | reg /= ea
+| MOD  | 0x18 | reg %= ea
+| SUB  | 0x20 | reg -= ea
+| LSL  | 0x24 | reg <<= ea
+| LSR  | 0x28 | reg >>= ea
+| AND  | 0x2c | reg &= ea
+| XOR  | 0x30 | reg ^= ea
+| OR   | 0x34 | reg |= ea
+| SGT  | 0x38 | reg = reg > ea
+| SLT  | 0x3c | reg = reg < ea
+
+reg = <operation> ea
+
+| OPC  | HEX  | Description
+|:----:|:----:|:----|
+| LD   | 0x40 | reg = ea
+| NEG  | 0x44 | reg = -ea
+| NOT  | 0x48 | reg = ~ea
+
+The following opcode block is reserved for flow-control, a concept unknown to untangle
+
+| OPC  | HEX  | Description
+|:----:|:----:|:----|
+| ST   | 0x4c | mem[ea] = reg (NOTE: `untangle` considers explicit writing to memory flow-control)
+| JZ   | 0x50 | pc = (reg == 0) ? ea : pc+4
+| JNZ  | 0x54 | pc = (reg != 0) ? ea : pc+4
+| JSB  | 0x58 | mem[--reg] = pc; pc = ea
+| RSB  | 0x5c | pc = mem[reg++]
+
+The following are considered convenience instruction to interact with stack
+
+| OPC  | HEX  | Description
+|:----:|:----:|:----|
+| PUSH | 0x60 | mem[--reg] = ea
+| PSHR | 0x64 | for (i=0; i<16; ++i) if (ea & (1<<i)) memory.word[--reg] = regs[i]
+| POPR | 0x68 | for (i=15; i>0; --i) if (ea & (1<<i)) regs[i] = memory.word[reg++]
+	
+
 ### `REL` language
 
 `REL` objects are used to construct assembler output and executables.
