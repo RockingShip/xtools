@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-11 20:21:32 Cleanup, optimise `poststep()`.
+                    Dropped `lval_1[]` and `lval_BPW[]`.
+                    Optimise `poststep()`.
 2020-06-11 20:17:12 Instruction set: swap positions result/index register.
 2020-06-11 00:58:32 Cleanup, remove all non-risc and condition code register.
                     Re-enumerate opcodes.

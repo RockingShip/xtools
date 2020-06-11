@@ -213,8 +213,6 @@ int	swinx;			// Position in switch table
 int	symidx;			// Next free identifier
 int	syms[SYMMAX*ILAST];	// Symbols/identifiers
 int	verbose;		// Verbose -v specified
-int 	lval_1[LLAST];		// lval[] for constant 1
-int 	lval_BPW[LLAST];	// lval[] for constant BPW
 char	ch;			// Current character in line being scanned
 char	ctype[256];		// character properties
 char	inpfn[PATHMAX];		// input filename
@@ -1055,18 +1053,18 @@ gencode_expr(int tok, register int lval[], register int rval[]) {
  * Auto increment/decrement
  */
 prestep(register int pre, register int lval[]) {
-	register int reg, *step;
+	register int reg, step;
 
-	step = isINTPTR(lval) ? lval_BPW : lval_1;
+	step = isINTPTR(lval) ? BPW : 1;
 
 	if (isRegister(lval) && (reglock & (1 << lval[LREG]))) {
-		gencode_lval(pre, lval[LREG], step);
+		gencode(pre, 0, lval[LREG], 0, step, 0);
 	} else if (lval[LTYPE] == MEMORY) {
 		// load memory into register
 		reg = allocreg();
 		gencode_lval(TOK_LD, reg, lval);
 		// increment/decrement
-		gencode_lval(pre, reg, step);
+		gencode(pre, 0, reg, 0, step, 0);
 		// store
 		gencode_lval(TOK_ST, reg, lval);
 
@@ -1084,16 +1082,16 @@ prestep(register int pre, register int lval[]) {
  * Note that the return lval needs to be based to the original value or "if (!i++)" will fail when "i=0"
  */
 poststep(register int post, register int lval[]) {
-	register int reg, *step;
+	register int reg, step, reg2;
 
-	step = isINTPTR(lval) ? lval_BPW : lval_1;
+	step = isINTPTR(lval) ? BPW : 1;
 
 	if (isRegister(lval) && (reglock & (1 << lval[LREG]))) {
 		reg = allocreg();
 		// copy modified original
 		gencode_lval(TOK_LD, reg, lval);
 		// increment/decrement original
-		gencode_lval(post, lval[LREG], step);
+		gencode(post, 0, lval[LREG], 0, step, 0);
 		// continue with copy (of original)
 		freelval(lval);
 		lval[LREG] = reg;
@@ -1101,12 +1099,12 @@ poststep(register int post, register int lval[]) {
 		// load memory into register
 		reg = allocreg();
 		gencode_lval(TOK_LD, reg, lval);
-		// increment/decrement
-		gencode_lval(post, reg, step);
-		// write to memory
-		gencode_lval(TOK_ST, reg, lval);
-		// undo increment/decrement to get original condition code
-		gencode_lval((TOK_ADD + TOK_SUB - post), reg, step);
+		// increment/decrement into new register
+		reg2 = allocreg();
+		gencode(TOK_LD, 0, reg2, 0, (post == TOK_ADD) ? step : -step, reg);
+		// writeback
+		gencode_lval(TOK_ST, reg2, lval);
+		freereg(reg2);
 
 		freelval(lval);
 		lval[LTYPE] = ADDRESS;
@@ -2789,21 +2787,6 @@ initialize() {
 	// reserved words
 	dohash("ARGC", &argcid);
 	dohash("ARGV", &argvid);
-
-	// predefined lval[]
-	lval_1[LTYPE] = ADDRESS;
-	lval_1[LPTR] = 0;
-	lval_1[LSIZE] = 0;
-	lval_1[LNAME] = 0;
-	lval_1[LVALUE] = 1;
-	lval_1[LREG] = 0;
-
-	lval_BPW[LTYPE] = ADDRESS;
-	lval_BPW[LPTR] = 0;
-	lval_BPW[LSIZE] = 0;
-	lval_BPW[LNAME] = 0;
-	lval_BPW[LVALUE] = BPW;
-	lval_BPW[LREG] = 0;
 }
 
 /*
