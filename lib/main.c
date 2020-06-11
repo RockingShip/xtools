@@ -3,8 +3,8 @@ int stdout;
 int stderr;
 
 osprint(char *str) {
-	asm("lda r1,4(r14)");
-	asm("svc 31");
+	asm("ld.a r1,4(r14)");
+	asm("svc.a r1,31");
 }
 
 fread(char *buf, int siz, int cnt, int hdl) {
@@ -15,8 +15,8 @@ fread(char *buf, int siz, int cnt, int hdl) {
 	ctrl[2] = cnt;
 	ctrl[3] = hdl;
 
-	asm("lda r1,0(r15)");
-	return asm("svc 40");
+	asm("ld.a r1,0(r15)");
+	return asm("svc.a r1,40");
 }
 
 fwrite(int buf, int siz, int cnt, int hdl) {
@@ -27,8 +27,8 @@ fwrite(int buf, int siz, int cnt, int hdl) {
 	ctrl[2] = cnt;
 	ctrl[3] = hdl;
 
-	asm("lda r1,0(r15)");
-	return asm("svc 41");
+	asm("ld.a r1,0(r15)");
+	return asm("svc.a r1,41");
 }
 
 fopen(char *name, char *mode) {
@@ -37,8 +37,8 @@ fopen(char *name, char *mode) {
 	ctrl[0] = name;
 	ctrl[1] = mode;
 
-	asm("lda r1,0(r15)");
-	return asm("svc 42");
+	asm("ld.a r1,0(r15)");
+	return asm("svc.a r1,42");
 }
 
 fclose(int hdl) {
@@ -46,8 +46,8 @@ fclose(int hdl) {
 
 	ctrl[0] = hdl;
 
-	asm("lda r1,0(r15)");
-	return asm("svc 43");
+	asm("ld.a r1,0(r15)");
+	return asm("svc.a r1,43");
 }
 
 fseek(int hdl, int pos, int whence) {
@@ -57,8 +57,8 @@ fseek(int hdl, int pos, int whence) {
 	ctrl[1] = pos;
 	ctrl[2] = whence;
 
-	asm("lda r1,0(r15)");
-	return asm("svc 44");
+	asm("ld.a r1,0(r15)");
+	return asm("svc.a r1,44");
 }
 
 ftell(int hdl) {
@@ -66,8 +66,8 @@ ftell(int hdl) {
 
 	ctrl[0] = hdl;
 
-	asm("lda r1,0(r15)");
-	return asm("svc 47");
+	asm("ld.a r1,0(r15)");
+	return asm("svc.a r1,47");
 }
 
 unlink(char *name) {
@@ -75,8 +75,8 @@ unlink(char *name) {
 
 	ctrl[0] = name;
 
-	asm("lda r1,0(r15)");
-	return asm("svc 45");
+	asm("ld.a r1,0(r15)");
+	return asm("svc.a r1,45");
 }
 
 rename(char *old, char *new) {
@@ -85,8 +85,8 @@ rename(char *old, char *new) {
 	ctrl[0] = old;
 	ctrl[1] = new;
 
-	asm("lda r1,0(r15)");
-	return asm("svc 46");
+	asm("ld.a r1,0(r15)");
+	return asm("svc.a r1,46");
 }
 
 exit(int code) {
@@ -94,8 +94,8 @@ exit(int code) {
 
 	ctrl[0] = code;
 
-	asm("lda r1,0(r15)");
-	asm("svc 99");
+	asm("ld.a r1,0(r15)");
+	asm("svc.a r1,99");
 }
 
 __START(int argc, int *argv)
@@ -107,9 +107,9 @@ __START(int argc, int *argv)
 	/* r12 REG_1   constant 1 */
 	/* r0  REG_0   constant 0 */
 
-	asm("lda r13,2");
-	asm("lda r12,1");
-	asm("lda r0,0");
+	asm("ld.a r13,2");
+	asm("ld.a r12,1");
+	asm("ld.a r0,0");
 
 	stdin = 0;
 	stdout = 1;

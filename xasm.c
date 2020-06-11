@@ -106,104 +106,41 @@ enum {
  */
 
 enum {
-	OPC_ILLEGAL = 0x00,
-	OPC_ADD = 0x13,
-	OPC_SUB = 0x12,
-	OPC_MUL = 0x14,
-	OPC_DIV = 0x15,
-	OPC_MOD = 0x16,
-	OPC_OR = 0x17,
-	OPC_XOR = 0x19,
-	OPC_AND = 0x18,
-	OPC_LSR = 0x1B,
-	OPC_LSL = 0x1A,
-	OPC_NEG = 0x1D,
-	OPC_NOT = 0x1C,
-	OPC_LDB = 0x04,
-	OPC_LDW = 0x01,
-	OPC_LDR = 0x11,
-	OPC_LEA = 0x03,
-	OPC_STB = 0x05,
-	OPC_STW = 0x02,
-	OPC_JSB = 0x20,
-	OPC_RSB = 0x21,
-	OPC_PSHR = 0x23,
-	OPC_POPR = 0x24,
-	OPC_PSHB = 0x25,
-	OPC_PSHW = 0x26,
-	OPC_PSHA = 0x27,
-	OPC_SVC = 0x0A,
-
-	OPC_NEGA = 0x38 + 0,
-	OPC_NEGB = 0x38 + 1,
-	OPC_NEGW = 0x38 + 2,
-	OPC_NOTA = 0x3c + 0,
-	OPC_NOTB = 0x3c + 1,
-	OPC_NOTW = 0x3c + 2,
-	OPC_MULA = 0x40 + 0,
-	OPC_MULB = 0x40 + 1,
-	OPC_MULW = 0x40 + 2,
-	OPC_DIVA = 0x44 + 0,
-	OPC_DIVB = 0x44 + 1,
-	OPC_DIVW = 0x44 + 2,
-	OPC_MODA = 0x48 + 0,
-	OPC_MODB = 0x48 + 1,
-	OPC_MODW = 0x48 + 2,
-	OPC_ADDA = 0x4c + 0,
-	OPC_ADDB = 0x4c + 1,
-	OPC_ADDW = 0x4c + 2,
-	OPC_SUBA = 0x50 + 0,
-	OPC_SUBB = 0x50 + 1,
-	OPC_SUBW = 0x50 + 2,
-	OPC_LSLA = 0x54 + 0,
-	OPC_LSLB = 0x54 + 1,
-	OPC_LSLW = 0x54 + 2,
-	OPC_LSRA = 0x58 + 0,
-	OPC_LSRB = 0x58 + 1,
-	OPC_LSRW = 0x58 + 2,
-	OPC_ANDA = 0x5c + 0,
-	OPC_ANDB = 0x5c + 1,
-	OPC_ANDW = 0x5c + 2,
-	OPC_XORA = 0x60 + 0,
-	OPC_XORB = 0x60 + 1,
-	OPC_XORW = 0x60 + 2,
-	OPC_ORA = 0x64 + 0,
-	OPC_ORB = 0x64 + 1,
-	OPC_ORW = 0x64 + 2,
-	OPC_SGTA = 0x68 + 0,
-	OPC_SGTB = 0x68 + 1,
-	OPC_SGTW = 0x68 + 2,
-	OPC_SLTA = 0x6c + 0,
-	OPC_SLTB = 0x6c + 1,
-	OPC_SLTW = 0x6c + 2,
-	OPC_LODA = 0x70 + 0,
-	OPC_LODB = 0x70 + 1,
-	OPC_LODW = 0x70 + 2,
-	// NOTE: The following opcode block is reserved for instructions conceptually unknown to untangle
-	OPC_STOA = 0x74 + 0,
-	OPC_STOB = 0x74 + 1,
-	OPC_STOW = 0x74 + 2,
-	OPC_JZA = 0x78 + 0,
-	OPC_JZB = 0x78 + 1,
-	OPC_JZW = 0x78 + 2,
-	OPC_JNZA = 0x7c + 0,
-	OPC_JNZB = 0x7c + 1,
-	OPC_JNZW = 0x7c + 2,
-	OPC_JSBA = 0x80 + 0,
-	OPC_JSBB = 0x80 + 1,
-	OPC_JSBW = 0x80 + 2,
-	OPC_RSBA = 0x84 + 0,
-	OPC_RSBB = 0x84 + 1,
-	OPC_RSBW = 0x84 + 2,
-	OPC_PUSHA = 0x88 + 0,
-	OPC_PUSHB = 0x88 + 1,
-	OPC_PUSHW = 0x88 + 2,
-	OPC_PSHRA = 0x8c + 0,
-	OPC_PSHRB = 0x8c + 1,
-	OPC_PSHRW = 0x8c + 2,
-	OPC_POPRA = 0x90 + 0,
-	OPC_POPRB = 0x90 + 1,
-	OPC_POPRW = 0x90 + 2,
+	/*
+	 * Syntax: opcode reg,immediate(index)
+	 *
+	 * opcode+0 ea=immediate+regs[index]
+	 * opcode+1 ea=memory.byte[immediate+regs[index]]
+	 * opcode+2 ea=memory.word[immediate+regs[index]]
+	 */
+	// reg = reg <operation> ea
+	OPC_SVC = 0x04, // reg = reg <systemcall> ea
+	OPC_MUL = 0x10, // reg *= ea
+	OPC_DIV = 0x14, // reg /= ea
+	OPC_MOD = 0x18, // reg %= ea
+	OPC_ADD = 0x1c, // reg += ea
+	OPC_SUB = 0x20, // reg -= ea
+	OPC_LSL = 0x24, // reg <<= ea
+	OPC_LSR = 0x28, // reg >>= ea
+	OPC_AND = 0x2c, // reg &= ea
+	OPC_XOR = 0x30, // reg ^= ea
+	OPC_OR = 0x34, // reg |= ea
+	OPC_SGT = 0x38, // reg = reg > ea
+	OPC_SLT = 0x3c, // reg = reg < ea
+	// reg = <operation> ea
+	OPC_LD = 0x40, // reg = ea
+	OPC_NEG = 0x44, // reg = -ea
+	OPC_NOT = 0x48, // reg = ~ea
+	// the following opcode block is reserved for flow-control, a concept unknown to untangle
+	OPC_ST = 0x4c, // mem[ea] = reg (NOTE: `untangle` considers explicit writing to memory flow-control)
+	OPC_JZ = 0x50, // pc = (reg == 0) ? ea : pc+1
+	OPC_JNZ = 0x54, // pc = (reg != 0) ? ea : pc+1
+	OPC_JSB = 0x58, // mem[--reg] = pc; pc = ea
+	OPC_RSB = 0x5c, // pc = mem[reg++]
+	// the following are considered convenience instruction to interact with stack
+	OPC_PUSH = 0x60, // mem[--reg] = ea
+	OPC_PSHR = 0x64, // for (i=0; i<16; ++i) if (ea & (1<<i)) memory.word[--reg] = regs[i]
+	OPC_POPR = 0x68, // for (i=15; i>0; --i) if (ea & (1<<i)) regs[i] = memory.word[reg++]
 };
 
 /*
@@ -1595,251 +1532,12 @@ do_pseudo(register int p[]) {
 
 do_opcode(register int p[]) {
 	if (pass == 1) {
-		switch (p[NVALUE]) {
-		case OPC_ILLEGAL:
-		case OPC_RSB:
-			curpos[curseg] += 1;
-			break;
-		case OPC_PSHR:
-		case OPC_POPR:
-		case OPC_SVC:
-			curpos[curseg] += 3;
-			break;
-		case OPC_PSHB:
-		case OPC_PSHW:
-		case OPC_PSHA:
-		case OPC_JSB:
-			curpos[curseg] += 4;
-			break;
-		case OPC_NEG:
-		case OPC_NOT:
-			curpos[curseg] += 2;
-			break;
-		case OPC_ADD:
-		case OPC_SUB:
-		case OPC_MUL:
-		case OPC_DIV:
-		case OPC_MOD:
-		case OPC_OR:
-		case OPC_XOR:
-		case OPC_AND:
-		case OPC_LSR:
-		case OPC_LSL:
-		case OPC_LDR:
-			curpos[curseg] += 3;
-			break;
-		case OPC_LDB:
-		case OPC_LDW:
-		case OPC_LEA:
-		case OPC_STB:
-		case OPC_STW:
-			curpos[curseg] += 5;
-			break;
-		case OPC_NEGA:
-		case OPC_NEGB:
-		case OPC_NEGW:
-		case OPC_NOTA:
-		case OPC_NOTB:
-		case OPC_NOTW:
-		case OPC_MULA:
-		case OPC_MULB:
-		case OPC_MULW:
-		case OPC_DIVA:
-		case OPC_DIVB:
-		case OPC_DIVW:
-		case OPC_MODA:
-		case OPC_MODB:
-		case OPC_MODW:
-		case OPC_ADDA:
-		case OPC_ADDB:
-		case OPC_ADDW:
-		case OPC_SUBA:
-		case OPC_SUBB:
-		case OPC_SUBW:
-		case OPC_LSLA:
-		case OPC_LSLB:
-		case OPC_LSLW:
-		case OPC_LSRA:
-		case OPC_LSRB:
-		case OPC_LSRW:
-		case OPC_ANDA:
-		case OPC_ANDB:
-		case OPC_ANDW:
-		case OPC_XORA:
-		case OPC_XORB:
-		case OPC_XORW:
-		case OPC_ORA:
-		case OPC_ORB:
-		case OPC_ORW:
-		case OPC_SGTA:
-		case OPC_SGTB:
-		case OPC_SGTW:
-		case OPC_SLTA:
-		case OPC_SLTB:
-		case OPC_SLTW:
-		case OPC_LODA:
-		case OPC_LODB:
-		case OPC_LODW:
-		case OPC_STOA:
-		case OPC_STOB:
-		case OPC_STOW:
-		case OPC_JZA:
-		case OPC_JZB:
-		case OPC_JZW:
-		case OPC_JNZA:
-		case OPC_JNZB:
-		case OPC_JNZW:
-		case OPC_JSBA:
-		case OPC_JSBB:
-		case OPC_JSBW:
-		case OPC_RSBA:
-		case OPC_RSBB:
-		case OPC_RSBW:
-		case OPC_PUSHA:
-		case OPC_PUSHB:
-		case OPC_PUSHW:
-		case OPC_PSHRA:
-		case OPC_PSHRB:
-		case OPC_PSHRW:
-		case OPC_POPRA:
-		case OPC_POPRB:
-		case OPC_POPRW:
-			curpos[curseg] += 4;
-			break;
-		default:
-			error("unimplemented opcode");
-			break;
-		}
+		curpos[curseg] += 4;
 		ch = 0; // ignore rest of line
 	} else {
 		sto_data(p[NVALUE], 1);
-		switch (p[NVALUE]) {
-		case OPC_ILLEGAL:
-		case OPC_RSB:
-			curpos[curseg] += 1;
-			break;
-			break;
-		case OPC_PSHR:
-		case OPC_POPR:
-		case OPC_SVC:
-			need_imm();
-			curpos[curseg] += 3;
-			break;
-		case OPC_PSHB:
-		case OPC_PSHW:
-		case OPC_PSHA:
-		case OPC_JSB:
-			need_mem();
-			curpos[curseg] += 4;
-			break;
-		case OPC_NEG:
-		case OPC_NOT:
-			need_reg();
-			curpos[curseg] += 2;
-			break;
-		case OPC_ADD:
-		case OPC_SUB:
-		case OPC_MUL:
-		case OPC_DIV:
-		case OPC_MOD:
-		case OPC_OR:
-		case OPC_XOR:
-		case OPC_AND:
-		case OPC_LSR:
-		case OPC_LSL:
-		case OPC_LDR:
-			need_reg();
-			need_comma();
-			need_reg();
-			curpos[curseg] += 3;
-			break;
-		case OPC_LDB:
-		case OPC_LDW:
-		case OPC_LEA:
-		case OPC_STB:
-		case OPC_STW:
-			need_reg();
-			need_comma();
-			need_mem();
-			curpos[curseg] += 5;
-			break;
-		case OPC_NEGA:
-		case OPC_NEGB:
-		case OPC_NEGW:
-		case OPC_NOTA:
-		case OPC_NOTB:
-		case OPC_NOTW:
-		case OPC_MULA:
-		case OPC_MULB:
-		case OPC_MULW:
-		case OPC_DIVA:
-		case OPC_DIVB:
-		case OPC_DIVW:
-		case OPC_MODA:
-		case OPC_MODB:
-		case OPC_MODW:
-		case OPC_ADDA:
-		case OPC_ADDB:
-		case OPC_ADDW:
-		case OPC_SUBA:
-		case OPC_SUBB:
-		case OPC_SUBW:
-		case OPC_LSLA:
-		case OPC_LSLB:
-		case OPC_LSLW:
-		case OPC_LSRA:
-		case OPC_LSRB:
-		case OPC_LSRW:
-		case OPC_ANDA:
-		case OPC_ANDB:
-		case OPC_ANDW:
-		case OPC_XORA:
-		case OPC_XORB:
-		case OPC_XORW:
-		case OPC_ORA:
-		case OPC_ORB:
-		case OPC_ORW:
-		case OPC_SGTA:
-		case OPC_SGTB:
-		case OPC_SGTW:
-		case OPC_SLTA:
-		case OPC_SLTB:
-		case OPC_SLTW:
-		case OPC_LODA:
-		case OPC_LODB:
-		case OPC_LODW:
-		case OPC_STOA:
-		case OPC_STOB:
-		case OPC_STOW:
-		case OPC_JZA:
-		case OPC_JZB:
-		case OPC_JZW:
-		case OPC_JNZA:
-		case OPC_JNZB:
-		case OPC_JNZW:
-		case OPC_JSBA:
-		case OPC_JSBB:
-		case OPC_JSBW:
-		case OPC_RSBA:
-		case OPC_RSBB:
-		case OPC_RSBW:
-		case OPC_PUSHA:
-		case OPC_PUSHB:
-		case OPC_PUSHW:
-		case OPC_PSHRA:
-		case OPC_PSHRB:
-		case OPC_PSHRW:
-		case OPC_POPRA:
-		case OPC_POPRB:
-		case OPC_POPRW:
-			need_risc();
-			curpos[curseg] += 4;
-			break;
-		default:
-			error("unimplemented opcode");
-			ch = 0; // ignore rest of line
-			break;
-		}
+		need_risc();
+		curpos[curseg] += 4;
 	}
 }
 
@@ -2019,6 +1717,25 @@ add_res(char *opc, int typ, int val) {
 }
 
 /*
+ * Add opcode to nametable
+ */
+add_opcode(char *opc, int val) {
+	char name[8];
+	int len;
+
+	len = strlen(opc);
+	strcpy(name, opc);
+	name[len++] = '.';
+	name[len + 1] = 0;
+	name[len] = 'a';
+	add_res(name, OPCODE, val + 0);
+	name[len] = 'b';
+	add_res(name, OPCODE, val + 1);
+	name[len] = 'w';
+	add_res(name, OPCODE, val + 2);
+}
+
+/*
  * Initialize all variables
  */
 initialize() {
@@ -2065,104 +1782,32 @@ initialize() {
 	curpos[CODESEG] = curpos[DATASEG] = curpos[TEXTSEG] = curpos[UDEFSEG] = 0;
 	maxpos[CODESEG] = maxpos[DATASEG] = maxpos[TEXTSEG] = maxpos[UDEFSEG] = 0;
 
-	add_res("neg.a", OPCODE, OPC_NEGA);
-	add_res("neg.b", OPCODE, OPC_NEGB);
-	add_res("neg.w", OPCODE, OPC_NEGW);
-	add_res("not.a", OPCODE, OPC_NOTA);
-	add_res("not.b", OPCODE, OPC_NOTB);
-	add_res("not.w", OPCODE, OPC_NOTW);
-	add_res("mul.a", OPCODE, OPC_MULA);
-	add_res("mul.b", OPCODE, OPC_MULB);
-	add_res("mul.w", OPCODE, OPC_MULW);
-	add_res("div.a", OPCODE, OPC_DIVA);
-	add_res("div.b", OPCODE, OPC_DIVB);
-	add_res("div.w", OPCODE, OPC_DIVW);
-	add_res("mod.a", OPCODE, OPC_MODA);
-	add_res("mod.b", OPCODE, OPC_MODB);
-	add_res("mod.w", OPCODE, OPC_MODW);
-	add_res("add.a", OPCODE, OPC_ADDA);
-	add_res("add.b", OPCODE, OPC_ADDB);
-	add_res("add.w", OPCODE, OPC_ADDW);
-	add_res("sub.a", OPCODE, OPC_SUBA);
-	add_res("sub.b", OPCODE, OPC_SUBB);
-	add_res("sub.w", OPCODE, OPC_SUBW);
-	add_res("lsl.a", OPCODE, OPC_LSLA);
-	add_res("lsl.b", OPCODE, OPC_LSLB);
-	add_res("lsl.w", OPCODE, OPC_LSLW);
-	add_res("lsr.a", OPCODE, OPC_LSRA);
-	add_res("lsr.b", OPCODE, OPC_LSRB);
-	add_res("lsr.w", OPCODE, OPC_LSRW);
-	add_res("and.a", OPCODE, OPC_ANDA);
-	add_res("and.b", OPCODE, OPC_ANDB);
-	add_res("and.w", OPCODE, OPC_ANDW);
-	add_res("xor.a", OPCODE, OPC_XORA);
-	add_res("xor.b", OPCODE, OPC_XORB);
-	add_res("xor.w", OPCODE, OPC_XORW);
-	add_res("or.a", OPCODE, OPC_ORA);
-	add_res("or.b", OPCODE, OPC_ORB);
-	add_res("or.w", OPCODE, OPC_ORW);
-	add_res("sgt.a", OPCODE, OPC_SGTA);
-	add_res("sgt.b", OPCODE, OPC_SGTB);
-	add_res("sgt.w", OPCODE, OPC_SGTW);
-	add_res("slt.a", OPCODE, OPC_SLTA);
-	add_res("slt.b", OPCODE, OPC_SLTB);
-	add_res("slt.w", OPCODE, OPC_SLTW);
-	add_res("ld.a", OPCODE, OPC_LODA);
-	add_res("ld.b", OPCODE, OPC_LODB);
-	add_res("ld.w", OPCODE, OPC_LODW);
-	add_res("st.a", OPCODE, OPC_STOA);
-	add_res("st.b", OPCODE, OPC_STOB);
-	add_res("st.w", OPCODE, OPC_STOW);
-	add_res("jz.a", OPCODE, OPC_JZA);
-	add_res("jz.b", OPCODE, OPC_JZB);
-	add_res("jz.w", OPCODE, OPC_JZW);
-	add_res("jnz.a", OPCODE, OPC_JNZA);
-	add_res("jnz.b", OPCODE, OPC_JNZB);
-	add_res("jnz.w", OPCODE, OPC_JNZW);
-	add_res("jsb.a", OPCODE, OPC_JSBA);
-	add_res("jsb.b", OPCODE, OPC_JSBB);
-	add_res("jsb.w", OPCODE, OPC_JSBW);
-	add_res("rsb.a", OPCODE, OPC_RSBA);
-	add_res("rsb.b", OPCODE, OPC_RSBB);
-	add_res("rsb.w", OPCODE, OPC_RSBW);
-	add_res("push.a", OPCODE, OPC_PUSHA);
-	add_res("push.b", OPCODE, OPC_PUSHB);
-	add_res("push.w", OPCODE, OPC_PUSHW);
-	add_res("pshr.a", OPCODE, OPC_PSHRA);
-	add_res("pshr.b", OPCODE, OPC_PSHRB);
-	add_res("pshr.w", OPCODE, OPC_PSHRW);
-	add_res("popr.a", OPCODE, OPC_POPRA);
-	add_res("popr.b", OPCODE, OPC_POPRB);
-	add_res("popr.w", OPCODE, OPC_POPRW);
+	add_opcode("neg", OPC_NEG);
+	add_opcode("not", OPC_NOT);
+	add_opcode("mul", OPC_MUL);
+	add_opcode("div", OPC_DIV);
+	add_opcode("mod", OPC_MOD);
+	add_opcode("add", OPC_ADD);
+	add_opcode("sub", OPC_SUB);
+	add_opcode("lsl", OPC_LSL);
+	add_opcode("lsr", OPC_LSR);
+	add_opcode("and", OPC_AND);
+	add_opcode("xor", OPC_XOR);
+	add_opcode("or", OPC_OR);
+	add_opcode("sgt", OPC_SGT);
+	add_opcode("slt", OPC_SLT);
+	add_opcode("ld", OPC_LD);
+	add_opcode("st", OPC_ST);
+	add_opcode("jz", OPC_JZ);
+	add_opcode("jnz", OPC_JNZ);
+	add_opcode("jsb", OPC_JSB);
+	add_opcode("rsb", OPC_RSB);
+	add_opcode("push", OPC_PUSH);
+	add_opcode("pshr", OPC_PSHR);
+	add_opcode("popr", OPC_POPR);
+	add_opcode("svc", OPC_SVC);
 
 	// reserved words
-	add_res("illegal", OPCODE, OPC_ILLEGAL);
-	add_res("add", OPCODE, OPC_ADD);
-	add_res("sub", OPCODE, OPC_SUB);
-	add_res("mul", OPCODE, OPC_MUL);
-	add_res("div", OPCODE, OPC_DIV);
-	add_res("mod", OPCODE, OPC_MOD);
-	add_res("or", OPCODE, OPC_OR);
-	add_res("xor", OPCODE, OPC_XOR);
-	add_res("and", OPCODE, OPC_AND);
-	add_res("lsr", OPCODE, OPC_LSR);
-	add_res("lsl", OPCODE, OPC_LSL);
-	add_res("neg", OPCODE, OPC_NEG);
-	add_res("not", OPCODE, OPC_NOT);
-	add_res("ldb", OPCODE, OPC_LDB);
-	add_res("ldw", OPCODE, OPC_LDW);
-	add_res("ldr", OPCODE, OPC_LDR);
-	add_res("lda", OPCODE, OPC_LEA);
-	add_res("stb", OPCODE, OPC_STB);
-	add_res("stw", OPCODE, OPC_STW);
-	add_res("jsb", OPCODE, OPC_JSB);
-	add_res("rsb", OPCODE, OPC_RSB);
-	add_res("pshr", OPCODE, OPC_PSHR);
-	add_res("popr", OPCODE, OPC_POPR);
-	add_res("pshb", OPCODE, OPC_PSHB);
-	add_res("pshw", OPCODE, OPC_PSHW);
-	add_res("psha", OPCODE, OPC_PSHA);
-	add_res("svc", OPCODE, OPC_SVC);
 	add_res(".code", PSEUDO, PSEUDO_CODE);
 	add_res(".data", PSEUDO, PSEUDO_DATA);
 	add_res(".text", PSEUDO, PSEUDO_TEXT);

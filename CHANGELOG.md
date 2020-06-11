@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-11 00:58:32 Cleanup, remove all non-risc and condition code register.
+                    Re-enumerate opcodes.
+                    Rename functions.
+                    Dropped reserved registers `REG_0/REG_1/REG_BPW`.
 2020-06-11 00:55:59 FIX: constant folding for `<` in `expr_rel()`.
 2020-06-10 22:44:40 FIX: `expr_postfix()` use `loadlval()` to merge registers.
                     Old code did not always work well with arrays.
@@ -28,7 +32,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
                     Converted all of the `CMP/Bcc` instructions.
                     Split `gencode_risc` into `vlal[]` and raw variants.
 2020-06-09 02:25:05 Optimize `expr_rel()` and `expr_equ()`.
-                    Suppress `loadlval(rval)` if `gencode_risc()` supports ea.
+                    Suppress `loadlval(rval)` if `gencode()` supports ea.
 2020-06-09 01:19:36 Rename to `jz/jnz`.
                     Better descriptive.
 2020-06-08 23:10:21 Adapt `expr_rel()` and `expr_equ()` to risc instructions.
