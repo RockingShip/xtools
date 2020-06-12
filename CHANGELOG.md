@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+```
+2020-06-12 00:01:24 FIX: Use `genlabel()/genequ()` to generate labels.
+                    Also reduce `fprintf()` usage.
+```
+
 ## [Release 2.2.0] 2020-06-11 21:47:31
 
 Classic RISC architecture and absence of condition code register.

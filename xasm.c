@@ -825,7 +825,7 @@ number(register int *val) {
 	i = minus = 0;
 	if (~ctype[ch] & CISDIGIT)
 		return 0;
-	if ((ch == '0') && (toupper(nch) == 'X')) {
+	if ((ch == '0') && (nch == 'x' || nch == 'X')) {
 		bump(2);
 		while (1) {
 			if (ctype[ch] & CISDIGIT)

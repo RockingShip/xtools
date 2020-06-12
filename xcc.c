@@ -557,6 +557,26 @@ toseg(register int newseg) {
 }
 
 /*
+ * Generate label definition
+ */
+genlabel(int lbl) {
+	fputc('_', outhdl);
+	fputd(lbl, outhdl);
+	fputc(':', outhdl);
+}
+
+/*
+ * Generate a label assignment
+ */
+genequ(int lbl, int equ) {
+	fputc('_', outhdl);
+	fputd(lbl, outhdl);
+	fputs("=_", outhdl);
+	fputd(equ, outhdl);
+	fputc('\n', outhdl);
+}
+
+/*
  * Generate a assembler statement
  */
 genopc(int opc) {
@@ -787,8 +807,8 @@ loadlval(register int lval[], register int reg) {
 		lval[LVALUE] = 0;
 		lval[LREG] = reg;
 	} else if (lval[LTYPE] == BRANCH) {
-		int lblX;
-		lblX = ++nxtlabel;
+		int lend;
+		lend = ++nxtlabel;
 
 		if (reg <= 0)
 			reg = allocreg();
@@ -797,12 +817,12 @@ loadlval(register int lval[], register int reg) {
 
 		gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		if (lval[LTRUE])
-			fprintf(outhdl, "_%d:", lval[LTRUE]);
+			genlabel(lval[LTRUE]);
 		gencode(TOK_LD, 0, reg, 0, 1, 0);
-		gencode_L(TOK_JZ, 0, lblX);
-		fprintf(outhdl, "_%d:", lval[LFALSE]);
+		gencode_L(TOK_JZ, 0, lend);
+		genlabel(lval[LFALSE]);
 		gencode(TOK_LD, 0, reg, 0, 0, 0);
-		fprintf(outhdl, "_%d:", lblX);
+		genlabel(lend);
 
 		freelval(lval);
 		lval[LTYPE] = ADDRESS;
@@ -852,7 +872,7 @@ number(register int *val) {
 	i = minus = 0;
 	if (!(ctype[ch] & CISDIGIT))
 		return 0;
-	if ((ch == '0') && (toupper(nch) == 'X')) {
+	if (ch == '0' && (nch == 'x' || nch == 'X'))  {
 		bump(2);
 		while (1) {
 			if (ctype[ch] & CISDIGIT)
@@ -916,7 +936,8 @@ constant(register int lval[]) {
 	prevseg = currseg;
 
 	toseg(TEXTSEG);
-	fprintf(outhdl, "_%d:\t.dcb\t\"", lbl);
+	genlabel(lbl);
+	fputs("\t.dcb\t\"", outhdl);
 
 	while (ch && (ch != '"')) {
 		if (ch == '\\') {
@@ -1671,7 +1692,7 @@ expr_land(int lval[]) {
 
 		// emit LTRUE if referenced
 		if (lval[LTRUE])
-			fprintf(outhdl, "_%d:", lval[LTRUE]);
+			genlabel(lval[LTRUE]);
 
 		// Load next lval
 		if (!expr_or(lval)) {
@@ -1692,7 +1713,7 @@ expr_land(int lval[]) {
 
 		// cascade jumps
 		if (lval[LFALSE])
-			fprintf(outhdl, "_%d=_%d\n", lval[LFALSE], lfalse);
+			genequ(lval[LFALSE], lfalse);
 		lval[LFALSE] = lfalse;
 
 		if (!omatch("&&"))
@@ -1737,7 +1758,7 @@ expr_lor(int lval[]) {
 
 		// emit LFALSE if referenced
 		if (lval[LFALSE])
-			fprintf(outhdl, "_%d:", lval[LFALSE]);
+			genlabel(lval[LFALSE]);
 
 		// Load next lval
 		if (!expr_land(lval)) {
@@ -1758,7 +1779,7 @@ expr_lor(int lval[]) {
 
 		// cascade jumps
 		if (lval[LTRUE])
-			fprintf(outhdl, "_%d=_%d\n", lval[LTRUE], ltrue);
+			genequ(lval[LTRUE], ltrue);
 		lval[LTRUE] = ltrue;
 
 		if (!omatch("||"))
@@ -1799,7 +1820,7 @@ expr_ternary(register int lval[]) {
 
 	// when-true expression
 	if (lval[LTRUE])
-		fprintf(outhdl, "_%d:", lval[LTRUE]);
+		genlabel(lval[LTRUE]);
 	expression(lval);
 	loadlval(lval, reg = allocreg()); // Needed to assign a dest reg
 
@@ -1809,14 +1830,14 @@ expr_ternary(register int lval[]) {
 	gencode_L(TOK_JZ, 0, lend);
 
 	// when-false expression
-	fprintf(outhdl, "_%d:", lfalse);
+	genlabel(lfalse);
 	if (!expr_ternary(lval))
 		exprerr();
 	else
 		loadlval(lval, reg); // Load into same register as 'when-true' path
 
 	// common end label
-	fprintf(outhdl, "_%d:", lend);
+	genlabel(lend);
 
 	return 1;
 }
@@ -1967,7 +1988,7 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 	// generate map
 	maplbl = ++nxtlabel;
 	toseg(DATASEG);
-	fprintf(outhdl, "_%d:", maplbl);
+	genlabel(maplbl);
 	cnt = 0;
 	for (i = lo; i <= hi; ++i) {
 		lbl = deflbl;
@@ -1992,7 +2013,7 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 	toseg(prevseg);
 
 	// generate code (use j as reg)
-	fprintf(outhdl, "_%d:", codlbl);
+	genlabel(codlbl);
 	j = allocreg();
 
 	// bounds check
@@ -2077,7 +2098,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		}
 		if (lval[LTRUE])
-			fprintf(outhdl, "_%d:", lval[LTRUE]);
+			genlabel(lval[LTRUE]);
 		freelval(lval);
 		statement(swbase, returnlbl, breaklbl, contlbl, breaksp, contsp);
 		if (!amatch("else")) {
@@ -2085,7 +2106,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			//     compare
 			// T:  statement
 			// F:
-			fprintf(outhdl, "_%d:", lval[LFALSE]);
+			genlabel(lval[LFALSE]);
 		} else {
 			// @date 2020-05-19 12:45:53
 			//     compare
@@ -2095,9 +2116,9 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			// L1:
 			lbl1 = ++nxtlabel;
 			gencode_L(TOK_JZ, 0, lbl1);
-			fprintf(outhdl, "_%d:", lval[LFALSE]);
+			genlabel(lval[LFALSE]);
 			statement(swbase, returnlbl, breaklbl, contlbl, breaksp, contsp);
-			fprintf(outhdl, "_%d:", lbl1);
+			genlabel(lbl1);
 		}
 	} else if (amatch("while")) {
 		// @date 2020-05-19 12:39:49
@@ -2107,7 +2128,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		//     jmp L1
 		// F:
 		lbl1 = ++nxtlabel;
-		fprintf(outhdl, "_%d:", lbl1);
+		genlabel(lbl1);
 		needtoken("(");
 		expression(lval);
 		needtoken(")");
@@ -2127,11 +2148,11 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			gencode_L(lval[LVALUE], lval[LREG], lval[LFALSE]);
 		}
 		if (lval[LTRUE])
-			fprintf(outhdl, "_%d:", lval[LTRUE]);
+			genlabel(lval[LTRUE]);
 		freelval(lval);
 		statement(swbase, returnlbl, lval[LFALSE], lbl1, csp, csp);
 		gencode_L(TOK_JZ, 0, lbl1);
-		fprintf(outhdl, "_%d:", lval[LFALSE]);
+		genlabel(lval[LFALSE]);
 	} else if (amatch("do")) {
 		// @date 2020-05-19 12:37:46
 		// L1: statement
@@ -2140,21 +2161,21 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		// F:
 		lbl1 = ++nxtlabel;
 		lbl2 = ++nxtlabel;
-		fprintf(outhdl, "_%d:", lbl1);
+		genlabel(lbl1);
 		statement(swbase, returnlbl, lbl2, lbl1, csp, csp);
-		fprintf(outhdl, "_%d:", lbl2);
+		genlabel(lbl2);
 		needtoken("while");
 		needtoken("(");
 		expression(lval);
 		needtoken(")");
 		if (lval[LTYPE] == BRANCH) {
 			if (lval[LTRUE])
-				fprintf(outhdl, "_%d=_%d\n", lval[LTRUE], lbl1);
+				genequ(lval[LTRUE], lbl1);
 			else
 				lval[LTRUE] = lbl1;
 			gencode_L(TOK_JZ + TOK_JNZ - lval[LVALUE], lval[LREG], lval[LTRUE]);
 			if (lval[LFALSE])
-				fprintf(outhdl, "_%d:", lval[LFALSE]);
+				genlabel(lval[LFALSE]);
 		} else {
 			loadlval(lval, -1);
 			// Change lval to "BRANCH"
@@ -2185,7 +2206,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			freelval(lval);
 		}
 		needtoken(";");
-		fprintf(outhdl, "_%d:", lbl1);
+		genlabel(lbl1);
 		blanks();
 		if (ch != ';') {
 			expression(lval);
@@ -2209,7 +2230,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		}
 		gencode_L(TOK_JZ, 0, lval[LTRUE]);
 		needtoken(";");
-		fprintf(outhdl, "_%d:", lbl2);
+		genlabel(lbl2);
 		blanks();
 		if (ch != ')') {
 			expression(lval);
@@ -2217,10 +2238,10 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		}
 		gencode_L(TOK_JZ, 0, lbl1);
 		needtoken(")");
-		fprintf(outhdl, "_%d:", lval[LTRUE]);
+		genlabel(lval[LTRUE]);
 		statement(swbase, returnlbl, lval[LFALSE], lbl1, csp, csp);
 		gencode_L(TOK_JZ, 0, lbl2);
-		fprintf(outhdl, "_%d:", lval[LFALSE]);
+		genlabel(lval[LFALSE]);
 	} else if (amatch("switch")) {
 		needtoken("(");
 		expression(lval);
@@ -2236,7 +2257,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		statement(sav_sw, returnlbl, lbl2, contlbl, csp, contsp);
 		gencode_L(TOK_JZ, 0, lbl2);
 		dumpsw(sav_sw, lbl1, lbl2);
-		fprintf(outhdl, "_%d:", lbl2);
+		genlabel(lbl2);
 		swinx = sav_sw;
 	} else if (amatch("case")) {
 		if (!swbase)
@@ -2248,7 +2269,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			if (sw[i * SLAST + SCASE] == lbl3)
 				error("case value already defined");
 		lbl1 = ++nxtlabel;
-		fprintf(outhdl, "_%d:", lbl1);
+		genlabel(lbl1);
 		if (swinx >= SWMAX)
 			fatal("switch table overflow");
 		sym = &sw[swinx++ * SLAST];
@@ -2262,7 +2283,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		if (sym[SLABEL])
 			error("multiple defaults");
 		lbl1 = ++nxtlabel;
-		fprintf(outhdl, "_%d:", lbl1);
+		genlabel(lbl1);
 		sym[SLABEL] = lbl1;
 	} else if (amatch("return")) {
 		if (!match(";")) {
@@ -2721,7 +2742,12 @@ declfunc(int clas) {
 		error("internal error. registers not unlocked");
 
 	// trailing statements
-	fprintf(outhdl, "_%d:\t_%d=%d\n", returnlbl, pshrlbl, regsum);
+	genlabel(returnlbl);
+	fputc('_', outhdl);
+	fputd(pshrequ, outhdl);
+	fputc('=', outhdl);
+	fputd(regsum, outhdl); // NOTE: immediate, not label
+	fputc('\n', outhdl);
 	gencode(TOK_POPR, 0, REG_SP, 0, regsum, 0);
 	gencode(TOK_RSB, 0, REG_SP, 0, 0, 0);
 
