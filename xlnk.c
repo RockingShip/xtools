@@ -214,16 +214,15 @@ char	inpfn[PATHMAX];		// input filename
 char	lisfn[PATHMAX];		// listing filename
 char	outfn[PATHMAX];		// output filename
 
+extern char *stdout;
 //int exit(int code);
 //int fclose(int hdl);
 //int fgets(char *str, int siz, int hdl);
 //int fopen(char *name, char *mode);
-//int fprintf(int *, char *, ...);
 //int fputc(int ch, int hdl);
 //int fread(char *buf, int siz, int cnt, int hdl);
 //int fseek(int hdl, int pos, int whence);
 //int fwrite(char *buf, int siz, int cnt, int hdl);
-//int printf(char *, ...);
 //int strcpy(char *dst, char *src);
 //int strlen(char *str);
 //int strncpy(char *dst, int n, char *src);
@@ -233,7 +232,8 @@ char	outfn[PATHMAX];		// output filename
  *
  */
 fatal(char *msg) {
-	printf("%s\n", msg);
+	fputs(msg, stdout);
+	fputc('\n', stdout);
 	exit(1);
 }
 
@@ -277,7 +277,7 @@ lbdohash(register char *ident, int *retval) {
 				if (hash >= lbhdr[LBHNAME])
 					hash -= lbhdr[LBHNAME];
 				if (hash == start) {
-					printf("name table overflow\n");
+					fputs("name table overflow\n", stdout);
 					exit(1);
 				}
 			}
@@ -300,7 +300,7 @@ outname(register int hash) {
 		i = outname(i); // display and get length string
 	else
 		i = 0; // nothing displayed yet
-	printf("%c", name[hash * NLAST + NCHAR]);
+	fputc(name[hash * NLAST + NCHAR], stdout);
 	return i + 1; // Increment length
 }
 
@@ -315,7 +315,7 @@ foutname(register int hash) {
 		i = foutname(i); // display and get length string
 	else
 		i = 0; // nothing displayed yet
-	fprintf(lishdl, "%c", name[hash * NLAST + NCHAR]);
+	fputc(name[hash * NLAST + NCHAR], lishdl);
 	return i + 1; // Increment length
 }
 
@@ -373,17 +373,24 @@ dohash(register char *ident, int *retval) {
  *
  */
 objerr(register int *fp, char *msg, int curseg) {
-	printf(msg);
-	printf(" at ");
-	if (curseg == CODESEG)
-		printf("C%04x", fp[FCODEPOS]);
-	else if (curseg == DATASEG)
-		printf("D%04x", fp[FDATAPOS]);
-	else if (curseg == TEXTSEG)
-		printf("D%04x", fp[FTEXTPOS]);
-	else
-		printf("U%04x", fp[FUDEFPOS]);
-	printf(" in %s\n", inpfn);
+	fputs(msg, stdout);
+	fputs(" at ", stdout);
+	if (curseg == CODESEG) {
+		fputc('C', stdout);
+		fput0x(fp[FCODEPOS], 4, stdout);
+	} else if (curseg == DATASEG) {
+		fputc('D', stdout);
+		fput0x(fp[FDATAPOS], 4, stdout);
+	} else if (curseg == TEXTSEG) {
+		fputc('T', stdout);
+		fput0x(fp[FTEXTPOS], 4, stdout);
+	} else {
+		fputc('U', stdout);
+		fput0x(fp[FUDEFPOS], 4, stdout);
+	}
+	fputs(" in ", stdout);
+	fputs(inpfn, stdout);
+	fputc('\n', stdout);
 	errflag = 1;
 }
 
@@ -444,7 +451,11 @@ open_file(char *fn, char *mode) {
 	fd = fopen(fn, mode);
 	if (fd > 0)
 		return fd;
-	printf("fopen(%s,%s) failed\n", fn, mode);
+	fputs("fopen(", stdout);
+	fputs(fn, stdout);
+	fputc(',', stdout);
+	fputs(mode, stdout);
+	fputs(") failed\n", stdout);
 	exit(1);
 }
 
@@ -454,8 +465,11 @@ open_file(char *fn, char *mode) {
 open_olb() {
 	register int i, *p;
 
-	if (verbose)
-		printf("Loading library %s\n", inpfn);
+	if (verbose) {
+		fputs("Loading library ", stdout);
+		fputs(inpfn, stdout);
+		fputc('\n', stdout);
+	}
 
 	inphdl = open_file(inpfn, "r");
 
@@ -472,7 +486,7 @@ open_olb() {
 			lbfile[i] = read_word();
 
 	if (verbose)
-		printf("Loaded\n");
+		fputs("Loaded\n", stdout);
 }
 
 /*
@@ -505,28 +519,47 @@ save_seg_size(register int *fp) {
 objmap() {
 	register int i, *p, len;
 
-	fprintf(lishdl, "                                                CODE       DATA       TEXT       UDEF   \n");
-	fprintf(lishdl, "id         module             library         BASE LEN   BASE LEN   BASE LEN   BASE LEN \n");
-	fprintf(lishdl, "-- -------------------- --------------------  ---- ----  ---- ----  ---- ----  ---- ----\n");
+	fputs("                                                CODE       DATA       TEXT       UDEF   \n", lishdl);
+	fputs("id         module             library         BASE LEN   BASE LEN   BASE LEN   BASE LEN \n", lishdl);
+	fputs("-- -------------------- --------------------  ---- ----  ---- ----  ---- ----  ---- ----\n", lishdl);
 
 	for (i = 0; i < file2inx; ++i) {
 		p = &file2[i * FLAST];
-		fprintf(lishdl, "%2d ", i + 1);
+		if (i+1 < 10)
+			fputc(' ', lishdl);
+		fputd(i+1, lishdl);
+		fputc(' ', lishdl);
 		len = foutname(p[FFILE]);
 		while (len++ <= 20)
-			fprintf(lishdl, " ");
+			fputc(' ', lishdl);
 		if (p[FLIB] == -1)
-			fprintf(lishdl, "                     ");
+			fputs("                     ", lishdl);
 		else {
 			len = foutname(p[FLIB]);
 			while (len++ <= 20)
-				fprintf(lishdl, " ");
+				fputc(' ', lishdl);
 		}
-		fprintf(lishdl, " %04x %04x  %04x %04x  %04x %04x  %04x %04x\n",
-			p[FCODEBASE], p[FCODELEN],
-			p[FDATABASE], p[FDATALEN],
-			p[FTEXTBASE], p[FTEXTLEN],
-			p[FUDEFBASE], p[FUDEFLEN]);
+		fputs(" ", lishdl);
+		fput0x(p[FCODEBASE], 4, lishdl);
+		fputc(' ', lishdl);
+		fput0x(p[FCODELEN], 4, lishdl);
+
+		fputs("  ", lishdl);
+		fput0x(p[FDATABASE], 4, lishdl);
+		fputc(' ', lishdl);
+		fput0x(p[FDATALEN], 4, lishdl);
+
+		fputs("  ", lishdl);
+		fput0x(p[FTEXTBASE], 4, lishdl);
+		fputc(' ', lishdl);
+		fput0x(p[FTEXTLEN], 4, lishdl);
+
+		fputs("  ", lishdl);
+		fput0x(p[FUDEFBASE], 4, lishdl);
+		fputc(' ', lishdl);
+		fput0x(p[FUDEFLEN], 4, lishdl);
+
+		fputc('\n', lishdl);
 	}
 }
 
@@ -543,23 +576,28 @@ symmap(register int start) {
 			p = &name[hash * NLAST];
 			if ((p[NCHAR] == ch) && (p[NTAB] == tab)) {
 				if (p[NTYPE]) {
-					fprintf(lishdl, "%2d %04x ", p[NMODULE] + 1, p[NVALUE]);
+					if (p[NMODULE] + 1 < 10)
+						fputc(' ', lishdl);
+					fputd(p[NMODULE] + 1, lishdl);
+					fputc(' ', lishdl);
+					fput0x(p[NVALUE], 4, lishdl);
+					fputc(' ', lishdl);
 					if (p[NTYPE] == UNDEF)
-						fprintf(lishdl, "**** ");
+						fputs("**** ", lishdl);
 					else if (p[NTYPE] == ABS)
-						fprintf(lishdl, "ABS  ");
+						fputs("ABS  ", lishdl);
 					else if (p[NTYPE] == CODE)
-						fprintf(lishdl, "CODE ");
+						fputs("CODE ", lishdl);
 					else if (p[NTYPE] == DATA)
-						fprintf(lishdl, "DATA ");
+						fputs("DATA ", lishdl);
 					else if (p[NTYPE] == TEXT)
-						fprintf(lishdl, "TEXT ");
+						fputs("TEXT ", lishdl);
 					else if (p[NTYPE] == UDEF)
-						fprintf(lishdl, "UDEF ");
+						fputs("UDEF ", lishdl);
 					else
-						fprintf(lishdl, "????");
+						fputs("????", lishdl);
 					foutname(hash);
-					fprintf(lishdl, "\n");
+					fputc('\n', lishdl);
 				}
 				symmap(hash);
 				break; // Inner loop
@@ -596,12 +634,15 @@ dopass1(int fileid, int libid, int libofs) {
 	curseg = CODESEG;
 	if (verbose) {
 		soutname(fileid, datbuf);
-		printf("processing %s", datbuf);
+		fputs("processing ", stdout);
+		fputs(datbuf, stdout);
 		if (libid != -1) {
 			soutname(libid, datbuf);
-			printf(" (%s)", datbuf);
+			fputc('(', stdout);
+			fputs(datbuf, stdout);
+			fputc(')', stdout);
 		}
-		printf("\n", datbuf);
+		fputc('\n', stdout);
 	}
 	while (1) {
 		cmd = read_byte();
@@ -658,8 +699,11 @@ dopass1(int fileid, int libid, int libofs) {
 				p = &name[hash * NLAST];
 				if (!p[NTYPE])
 					p[NTYPE] = UNDEF;
-				if (debug)
-					printf("SYMBOL: %s\n", datbuf);
+				if (debug) {
+					fputs("SYMBOL: ", stdout);
+					fputs(datbuf, stdout);
+					fputc('\n', stdout);
+				}
 				break;
 			case REL_POPB:
 				// increase curpos with 1
@@ -725,11 +769,20 @@ dopass1(int fileid, int libid, int libofs) {
 					p[NMODULE] = file2inx - 1;
 					p[NVALUE] = symofs;
 				} else {
-					printf("Symbol '%s' doubly defined", datbuf);
+					fputs("Symbol '", stdout);
+					fputs(datbuf, stdout);
+					fputs("' doubly defined", stdout);
 					objerr(fp, "", symseg);
 				}
-				if (debug)
-					printf("SYMDEF: %s %d:%d\n", datbuf, symseg, symofs);
+				if (debug) {
+					fputs("SYMDEF: ", stdout);
+					fputs(datbuf, stdout);
+					fputc(' ', stdout);
+					fputd(symseg, stdout);
+					fputc(':', stdout);
+					fput0x(symofs, 4, stdout);
+					fputc('\n', stdout);
+				}
 				break;
 			case REL_CODEORG:
 			case REL_DATAORG:
@@ -750,11 +803,18 @@ dopass1(int fileid, int libid, int libofs) {
 					curseg = UDEFSEG;
 					fp[FUDEFPOS] = symofs;
 				}
-				if (debug)
-					printf("ORG: %d:%d\n", curseg, symofs);
+				if (debug) {
+					fputs("ORG: ", stdout);
+					fputd(curseg, stdout);
+					fputc(':', stdout);
+					fput0x(symofs, 4, stdout);
+					fputc('\n', stdout);
+
+				}
 				break;
 			default:
-				printf("unknown command %d", cmd);
+				fputs("\"unknown command ", stdout);
+				fput0x(cmd & 0xff, 2, stdout);
 				objerr(fp, "", curseg);
 				exit(1);
 				break;
@@ -777,12 +837,15 @@ dopass2(register int *fp) {
 
 	if (verbose) {
 		soutname(fp[FFILE], datbuf);
-		printf("processing %s", datbuf);
+		fputs("processing ", stdout);
+		fputs(datbuf, stdout);
 		if (fp[FLIB] != -1) {
 			soutname(fp[FLIB], datbuf);
-			printf(" (%s)", datbuf);
+			fputc('(', stdout);
+			fputs(datbuf, stdout);
+			fputc(')', stdout);
 		}
-		printf("\n", datbuf);
+		fputc('\n', stdout);
 	}
 
 	while (1) {
@@ -982,7 +1045,9 @@ dopass2(register int *fp) {
 					break;
 				case REL_END:
 					if (stackinx) {
-						printf("stack not properly released in %s\n", inpfn);
+						fputs("stack not properly released in ", stdout);
+						fputs(inpfn, stdout);
+						fputc('\n', stdout);
 						exit(1);
 					}
 					return;
@@ -1020,7 +1085,8 @@ dopass2(register int *fp) {
 					fseek(outhdl, i, 0);
 					break;
 				default:
-					printf("unknown command %d", cmd);
+					fputs("\"unknown command ", stdout);
+					fput0x(cmd & 0xff, 2, stdout);
 					objerr(fp, "", curseg);
 					exit(1);
 					break;
@@ -1130,7 +1196,7 @@ process() {
 
 	pass = 1;
 	if (verbose)
-		printf("Pass 1\n");
+		fputs("Pass 1\n", stdout);
 
 	// process pass 1
 	for (i = 0; i < file1inx; ++i) {
@@ -1186,19 +1252,19 @@ process() {
 			p = &name[i * NLAST];
 			if (p[NTYPE] == UNDEF) {
 				if (!j) {
-					printf("Undefined symbols :\n");
+					fputs("Undefined symbols :\n", stdout);
 					errflag = 1;
 					j = 1;
 				}
 				outname(i);
-				printf("\n");
+				fputc('\n', stdout);
 			}
 		}
 	}
 
 	pass = 2;
 	if (verbose)
-		printf("Pass 2\n");
+		fputs("Pass 2\n", stdout);
 
 	// generate prefix "JMP ___START"
 	datbuf[0] = 0x50;  // opcode for "jz.a"
@@ -1292,15 +1358,17 @@ initialize() {
  * Process commandline
  */
 usage() {
-	printf("X-Linker, Version %s\n\n", getversion());
+	fputs("X-Linker, Version ", stdout);
+	fputs(getversion(), stdout);
+	fputs("\n\n", stdout);
 
-	printf("usage: xlnk <file>[.<ext>] ...\n");
-	printf("  -l <file>[.<ext>]]\tLibrary\n");
-	printf("  -o <file>[.<ext>]]\tImage output\n");
-	printf("  -m <file>[.<ext>]]\tMap output\n");
-	printf("  -s <stksiz>\t\tStack size\n");
-	printf("  -u\t\t\tIgnore undefined\n");
-	printf("  -v\t\t\tVerbose\n");
+	fputs("usage: xlnk <file>[.<ext>] ...\n", stdout);
+	fputs("  -l <file>[.<ext>]]\tLibrary\n", stdout);
+	fputs("  -o <file>[.<ext>]]\tImage output\n", stdout);
+	fputs("  -m <file>[.<ext>]]\tMap output\n", stdout);
+	fputs("  -s <stksiz>\t\tStack size\n", stdout);
+	fputs("  -u\t\t\tIgnore undefined\n", stdout);
+	fputs("  -v\t\t\tVerbose\n", stdout);
 	exit(1);
 }
 
@@ -1443,16 +1511,21 @@ main(int argc, int *argv) {
 	process();           // Start linking
 
 	if (lishdl) {
-		fprintf(lishdl, "Object statistics : \n");
+
+		fputs("Object statistics : \n", lishdl);
 		objmap();
-		fprintf(lishdl, "\nSymboltable : \n\n");
+		fputs("\nSymboltable : \n\n", lishdl);
 		symmap(0);
 	}
 
 	if (lishdl) {
 		j = 0;
 		for (i = 0; i < NAMEMAX; ++i) if (name[i * NLAST + NCHAR]) ++j;
-		fprintf(lishdl, "Names        : %5d/%5d)\n", j, NAMEMAX);
+		fputs("Names        : ", lishdl);
+		fputd(j, lishdl);
+		fputc('/', lishdl);
+		fputd(NAMEMAX, lishdl);
+		fputc('\n', lishdl);
 	}
 
 	return errflag;

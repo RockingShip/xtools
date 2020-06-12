@@ -139,7 +139,7 @@ reg = reg <operation> ea
 
 | OPC  | HEX  | Description
 |:----:|:----:|:----|
-| SVC  | 0x04 | reg = reg <systemcall> ea
+| SVC  | 0x04 | reg = reg &lt;systemcall&gt; ea
 | MUL  | 0x10 | reg *= ea
 | DIV  | 0x14 | reg /= ea
 | MOD  | 0x18 | reg %= ea
@@ -175,8 +175,8 @@ The following are considered convenience instruction to interact with stack
 | OPC  | HEX  | Description
 |:----:|:----:|:----|
 | PUSH | 0x60 | mem[--reg] = ea
-| PSHR | 0x64 | for (i=0; i<16; ++i) if (ea & (1<<i)) memory.word[--reg] = regs[i]
-| POPR | 0x68 | for (i=15; i>0; --i) if (ea & (1<<i)) regs[i] = memory.word[reg++]
+| PSHR | 0x64 | for (i=0; i<16; ++i) if (ea & (1 << i)) memory.word[--reg] = regs[i]
+| POPR | 0x68 | for (i=15; i>0; --i) if (ea & (1 >> i)) regs[i] = memory.word[reg++]
 	
 
 ### `REL` language

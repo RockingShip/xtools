@@ -6,8 +6,11 @@ CLEANFILES = *.xs *.xo *.xa *.xs3 *.xo3 stamp-stage2 stamp-stage3
 
 MODULES = \
 	fgets.c \
+	fput0x.c \
 	fputc.c \
+	fputd.c \
 	fputs.c \
+	gets.c \
 	isalnum.c \
 	isalpha.c \
 	iscntrl.c \
@@ -20,9 +23,7 @@ MODULES = \
 	isupper.c \
 	isxdigit.c \
 	main.c \
-	printf.c \
 	puts.c \
-	scanf.c \
 	strcat.c \
 	strchr.c \
 	strcmp.c \

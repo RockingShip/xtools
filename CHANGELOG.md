@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-12 15:27:22 Drop support for variadic functions.
+2020-06-12 15:07:39 Dropped usage of variadic functions including (sadly) `printf()/scanf()`.
+                    Replaced `printf()` with `fputd()` for `printf("%d")` and `fput0x()` for `printf("%0x")`.
+                    Adapted `cattle.c` for this change (aww).
 2020-06-12 00:01:24 FIX: Use `genlabel()/genequ()` to generate labels.
                     Also reduce `fprintf()` usage.
 ```
@@ -88,7 +92,7 @@ Known issues:
 
 Simplified and bugfixed `sym[]` (identifier) and `lval[]` (peephole) structures.
 More flexible pointer depth.
-Dropped preprocessor and pointers to functions. 
+Dropped preprocessor and pointers to functions.
 
 ```
 2020-06-04 12:19:44 Lost+Found.

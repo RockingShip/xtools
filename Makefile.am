@@ -1,4 +1,5 @@
 ACLOCAL_AMFLAGS = -I m4
+AUTOMAKE_OPTIONS=subdir-objects
 EXTRA_DIST = LICENSE.txt CHANGELOG.md README.md .gitignore autogen.sh cattle.c ostest.c
 
 AM_CFLAGS =  -Dint=long -fno-inline -w
@@ -19,12 +20,12 @@ bin_PROGRAMS = xemu xcc xasm xlnk xar
 xemu_SOURCES = xemu.c
 xemu_CFLAGS =
 
-xcc_SOURCES = xcc.c getversion.c
-xasm_SOURCES = xasm.c getversion.c
-xlnk_SOURCES = xlnk.c getversion.c
-xar_SOURCES = xar.c getversion.c
+xcc_SOURCES = xcc.c getversion.c lib/fput0x.c lib/fputd.c
+xasm_SOURCES = xasm.c getversion.c lib/fput0x.c lib/fputd.c
+xlnk_SOURCES = xlnk.c getversion.c lib/fput0x.c lib/fputd.c
+xar_SOURCES = xar.c getversion.c lib/fput0x.c lib/fputd.c
 
-ostest.img : ostest.xo lib/main.xo xlnk
+ostest.img : ostest.xo lib/fput0x.xo lib/fputd.xo lib/main.xo xlnk
 	./xlnk -m ostest.map -o $@ ostest.xo lib/main.xo
 
 test-ostest : ostest.img

@@ -244,27 +244,32 @@ char	nch;			// Next character in line being scanned
 char	outfn[PATHMAX];		// output filename
 char	sbuf[SBUFMAX];
 
+extern char *stdout;
 //exit(int code);
 //expression(int lval[]);
 //fclose(int hdl);
 //fgets(char *str, int siz, int hdl);
 //fopen(char *name, char *mode);
-//fprintf(int, char *, ...);
 //fread(char *buf, int siz, int cnt, int hdl);
 //fwrite(char *buf, int siz, int cnt, int hdl);
-//printf(char *, ...);
 //strcpy(char *dst, char *src);
 //strncpy(char *dst, int n, char *src);
-//toupper(int ch);
 
 /*
  * Generate error messages
  */
 error(char *msg) {
 	// Display original line
-	printf("%d: %s\n%%%s\n", inplnr, sbuf, msg);
-	if (lishdl)
-		fprintf(lishdl, ";%d %%%s\n", inplnr, msg);
+	fputd(inplnr, stdout);
+	fputs(": ", stdout);
+	fputs(sbuf, stdout);
+	fputs("\n%", stdout);
+	fputs(msg, stdout);
+	fputc('\n', stdout);
+
+	fputs(";% ", lishdl);
+	fputs(msg, lishdl);
+	fputc('\n', lishdl);
 
 	errflag = 1;
 }
@@ -299,14 +304,22 @@ readline() {
 
 			// Copy line to listing
 			if (lishdl) {
-				if (curseg == CODESEG)
-					fprintf(lishdl, "C%04x:\t%s\n", curpos[CODESEG] & 0xffff, sbuf);
-				else if (curseg == DATASEG)
-					fprintf(lishdl, "D%04x:\t%s\n", curpos[DATASEG] & 0xffff, sbuf);
-				else if (curseg == TEXTSEG)
-					fprintf(lishdl, "T%04x:\t%s\n", curpos[TEXTSEG] & 0xffff, sbuf);
-				else
-					fprintf(lishdl, "U%04x:\t%s\n", curpos[UDEFSEG] & 0xffff, sbuf);
+				if (curseg == CODESEG) {
+					fputc('C', lishdl);
+					fput0x(curpos[CODESEG] & 0xffff, 4, lishdl);
+				} else if (curseg == DATASEG) {
+					fputc('D', lishdl);
+					fput0x(curpos[DATASEG] & 0xffff, 4, lishdl);
+				} else if (curseg == TEXTSEG) {
+					fputc('T', lishdl);
+					fput0x(curpos[TEXTSEG] & 0xffff, 4, lishdl);
+				} else {
+					fputc('U', lishdl);
+					fput0x(curpos[UDEFSEG] & 0xffff, 4, lishdl);
+				}
+				fputs(":\t", lishdl);
+				fputs(sbuf, lishdl);
+				fputc('\n', lishdl);
 			}
 		}
 	}
@@ -461,7 +474,7 @@ foutname(register int hash) {
 	i = names[hash * NLAST + NTAB];
 	if (i)
 		foutname(i);
-	fprintf(outhdl, "%c", names[hash * NLAST + NCHAR]);
+	fputc(names[hash * NLAST + NCHAR], outhdl);
 }
 
 outname(register int hash) {
@@ -470,7 +483,7 @@ outname(register int hash) {
 	i = names[hash * NLAST + NTAB];
 	if (i)
 		outname(i);
-	printf("%c", names[hash * NLAST + NCHAR]);
+	fputc(names[hash * NLAST + NCHAR], stdout);
 }
 
 lenname(register int hash) {
@@ -548,7 +561,11 @@ open_file(char *fn, char *mode) {
 	fd = fopen(fn, mode);
 	if (fd > 0)
 		return fd;
-	printf("fopen(%s,%s) failed\n", fn, mode);
+	fputs("fopen(", stdout);
+	fputs(fn, stdout);
+	fputc(',', stdout);
+	fputs(mode, stdout);
+	fputs(") failed\n", stdout);
 	exit(1);
 }
 
@@ -570,7 +587,8 @@ sto_flush() {
 					fputc(',', outhdl);
 				else if (i)
 					fputc('\n', outhdl);
-				fprintf(outhdl, "0x%02x", datbuf[i]);
+				fputs("0x", outhdl);
+				fput0x(datbuf[i] & 0xff, 2, outhdl);
 			}
 			fputc('\n', outhdl);
 		}
@@ -709,74 +727,154 @@ sto_cmd(int cmd, int val) {
 				write_word(val);
 				break;
 			default:
-				printf("unimplemented OBJECT cmd: %d\n", cmd);
+				fputs("unimplemented OBJECT cmd: ", stdout);
+				fputd(cmd, stdout);
+				fputc('\n', stdout);
 				exit(1);
 				break;
 			}
 		else {
 			switch (cmd) {
-			case REL_END: fprintf(outhdl, "end\n", val); break;
-			case REL_ADD: fprintf(outhdl, "add\n"); break;
-			case REL_SUB: fprintf(outhdl, "sub\n"); break;
-			case REL_MUL: fprintf(outhdl, "mul\n"); break;
-			case REL_DIV: fprintf(outhdl, "div\n"); break;
-			case REL_MOD: fprintf(outhdl, "mod\n"); break;
-			case REL_LSR: fprintf(outhdl, "lsr\n"); break;
-			case REL_LSL: fprintf(outhdl, "lsl\n"); break;
-			case REL_AND: fprintf(outhdl, "and\n"); break;
-			case REL_OR:   fprintf(outhdl, "or\n"); break;
-			case REL_XOR: fprintf(outhdl, "xor\n"); break;
-			case REL_SWAP: fprintf(outhdl, "swap\n"); break;
-			case REL_POPB: fprintf(outhdl, "popb\n"); break;
-			case REL_POPW: fprintf(outhdl, "popw\n"); break;
-			case REL_PUSHB: fprintf(outhdl, "pushb %d\n", val); break;
-			case REL_PUSHW: fprintf(outhdl, "pushw %d\n", val); break;
-			case REL_CODEB: fprintf(outhdl, "codeb %d\n", val); break;
-			case REL_CODEW: fprintf(outhdl, "codew %d\n", val); break;
-			case REL_DATAB: fprintf(outhdl, "datab %d\n", val); break;
-			case REL_DATAW: fprintf(outhdl, "dataw %d\n", val); break;
-			case REL_TEXTB: fprintf(outhdl, "textb %d\n", val); break;
-			case REL_TEXTW: fprintf(outhdl, "textw %d\n", val); break;
-			case REL_UDEFB: fprintf(outhdl, "udefb %d\n", val); break;
-			case REL_UDEFW: fprintf(outhdl, "udefw %d\n", val); break;
-			case REL_DSB: fprintf(outhdl, "dsb %d\n", val); break;
-			case REL_CODEORG: fprintf(outhdl, "codeorg %d\n", val); break;
-			case REL_DATAORG: fprintf(outhdl, "dataorg %d\n", val); break;
-			case REL_TEXTORG: fprintf(outhdl, "textorg %d\n", val); break;
-			case REL_UDEFORG: fprintf(outhdl, "udeforg %d\n", val); break;
+			case REL_END:
+				fputs("end", outhdl);
+				break;
+			case REL_ADD:
+				fputs("add", outhdl);
+				break;
+			case REL_SUB:
+				fputs("sub", outhdl);
+				break;
+			case REL_MUL:
+				fputs("mul", outhdl);
+				break;
+			case REL_DIV:
+				fputs("div", outhdl);
+				break;
+			case REL_MOD:
+				fputs("mod", outhdl);
+				break;
+			case REL_LSR:
+				fputs("lsr", outhdl);
+				break;
+			case REL_LSL:
+				fputs("lsl", outhdl);
+				break;
+			case REL_AND:
+				fputs("and", outhdl);
+				break;
+			case REL_OR:
+				fputs("or", outhdl);
+				break;
+			case REL_XOR:
+				fputs("xor", outhdl);
+				break;
+			case REL_SWAP:
+				fputs("swap", outhdl);
+				break;
+			case REL_POPB:
+				fputs("popb", outhdl);
+				break;
+			case REL_POPW:
+				fputs("popw", outhdl);
+				break;
+			case REL_PUSHB:
+				fputs("pushb ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_PUSHW:
+				fputs("pushw ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_CODEB:
+				fputs("codeb ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_CODEW:
+				fputs("codew ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_DATAB:
+				fputs("datab ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_DATAW:
+				fputs("dataw ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_TEXTB:
+				fputs("textb ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_TEXTW:
+				fputs("textw ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_UDEFB:
+				fputs("udefb ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_UDEFW:
+				fputs("udefw ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_DSB:
+				fputs("dsb ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_CODEORG:
+				fputs("codeorg ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_DATAORG:
+				fputs("dataorg ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_TEXTORG:
+				fputs("textorg ", outhdl);
+				fputd(val, outhdl);
+				break;
+			case REL_UDEFORG:
+				fputs("udeforg ", outhdl);
+				fputd(val, outhdl);
+				break;
 			case REL_SYMBOL:
-				fprintf(outhdl, "symbol ");
+				fputs("symbol ", outhdl);
 				foutname(val);
-				fprintf(outhdl, "\n");
 				break;
 			case REL_CODEDEF:
 				p = &names[val * NLAST];
-				fprintf(outhdl, "codedef %d,", p[NVALUE]);
+				fputs("codedef ", outhdl);
+				fputd(p[NVALUE], outhdl);
+				fputc(',', outhdl);
 				foutname(val);
-				fprintf(outhdl, "\n", 0);
 				break;
 			case REL_DATADEF:
 				p = &names[val * NLAST];
-				fprintf(outhdl, "datadef %d,", p[NVALUE]);
+				fputs("datadef ", outhdl);
+				fputd(p[NVALUE], outhdl);
+				fputc(',', outhdl);
 				foutname(val);
-				fprintf(outhdl, "\n", 0);
 				break;
 			case REL_TEXTDEF:
 				p = &names[val * NLAST];
-				fprintf(outhdl, "textdef %d,", p[NVALUE]);
+				fputs("textdef ", outhdl);
+				fputd(p[NVALUE], outhdl);
+				fputc(',', outhdl);
 				foutname(val);
-				fprintf(outhdl, "\n", 0);
 				break;
 			case REL_UDEFDEF:
 				p = &names[val * NLAST];
-				fprintf(outhdl, "udefdef %d,", p[NVALUE]);
+				fputs("udefdef ", outhdl);
+				fputd(p[NVALUE], outhdl);
+				fputc(',', outhdl);
 				foutname(val);
-				fprintf(outhdl, "\n", 0);
 				break;
 			default:
-				fprintf(outhdl, "cmd: %d\n", cmd);
+				fputs("cmd ", outhdl);
+				fputd(cmd, outhdl);
 				break;
 			}
+			fputc('\n', outhdl);
 		}
 	}
 }
@@ -1550,8 +1648,13 @@ parse() {
 	int lval[LLAST];
 
 	while (inphdl) {
-		if (debug && (pass == 2))
-			fprintf(outhdl, "; %04x %s\n", curpos[CODESEG], lptr);
+		if (debug && (pass == 2)) {
+			fputs("; ", outhdl);
+			fput0x(curpos[CODESEG], 4, outhdl);
+			fputc(' ', outhdl);
+			fputs(lptr, outhdl);
+			fputc('\n', outhdl);
+		}
 		while (1) {
 			blanks();
 			if (!ch)
@@ -1573,7 +1676,7 @@ parse() {
 					ext = match(":");
 					if (verbose && ext) {
 						outname(hash);
-						printf("\n");
+						fputc('\n', outhdl);
 					}
 					if (curseg == CODESEG) {
 						p[NTYPE] = CODE;
@@ -1625,7 +1728,7 @@ parse() {
 					ext = match(":");
 					if (verbose && ext) {
 						outname(hash);
-						printf("\n");
+						fputc('\n', outhdl);
 					}
 					if (p[NTYPE] == CODE) {
 						if ((curseg != CODESEG) || (p[NVALUE] != curpos[CODESEG]))
@@ -1870,12 +1973,14 @@ initialize() {
  * Process commandline
  */
 usage() {
-	printf("X-Assembler, Version %s\n\n", getversion());
+	fputs("X-Assembler, Version ", stdout);
+	fputs(getversion(), stdout);
+	fputs("\n\n", stdout);
 
-	printf("usage: xasm <file>[.<ext>]\n");
-	printf("  -a <file>[.<ext>]]\tListing\n");
-	printf("  -c <file>[.<ext>]]\tObject output\n");
-	printf("  -v\t\t\tVerbose\n");
+	fputs("usage: xasm <file>[.<ext>]\n", stdout);
+	fputs("  -a <file>[.<ext>]]\tListing\n", stdout);
+	fputs("  -c <file>[.<ext>]]\tObject output\n", stdout);
+	fputs("  -v\t\t\tVerbose\n", stdout);
 	exit(1);
 }
 
@@ -1974,14 +2079,14 @@ main(int argc, int *argv) {
 
 		pass = 1;
 		if (verbose)
-			printf("Pass 1\n");
+			fputs("Pass 1\n", stdout);
 
 		readline(); // fetch first line
 		parse(); // GO !!!
 		save_seg_size();
 
 		if (!inphdl)
-			printf("%%missing .END statement\n");
+			fputs("%%missing .END statement\n", stdout);
 		else
 			fclose(inphdl);
 	}
@@ -1999,7 +2104,7 @@ main(int argc, int *argv) {
 
 		pass = 2;
 		if (verbose)
-			printf("Pass 2\n");
+			fputs("Pass 2\n", stdout);
 
 		readline(); // fetch first line
 		parse(); // GO !!!
@@ -2008,13 +2113,38 @@ main(int argc, int *argv) {
 	}
 
 	if (lishdl) {
-		fprintf(lishdl, "code  : 0x%04x (%5d)\n", maxpos[CODESEG] & 0xffff, maxpos[CODESEG] & 0xffff);
-		fprintf(lishdl, "data  : 0x%04x (%5d)\n", maxpos[DATASEG] & 0xffff, maxpos[DATASEG] & 0xffff);
-		fprintf(lishdl, "text  : 0x%04x (%5d)\n", maxpos[TEXTSEG] & 0xffff, maxpos[TEXTSEG] & 0xffff);
-		fprintf(lishdl, "udef  : 0x%04x (%5d)\n", maxpos[UDEFSEG] & 0xffff, maxpos[UDEFSEG] & 0xffff);
+		fputs("code  : 0x", lishdl);
+		fput0x(maxpos[CODESEG] & 0xffff, 4, lishdl);
+		fputs(" (", lishdl);
+		fputd(maxpos[CODESEG] & 0xffff, lishdl);
+		fputs(")\n", lishdl);
+
+		fputs("data  : 0x", lishdl);
+		fput0x(maxpos[DATASEG] & 0xffff, 4, lishdl);
+		fputs(" (", lishdl);
+		fputd(maxpos[DATASEG] & 0xffff, lishdl);
+		fputs(")\n", lishdl);
+
+		fputs("text  : 0x", lishdl);
+		fput0x(maxpos[TEXTSEG] & 0xffff, 4, lishdl);
+		fputs(" (", lishdl);
+		fputd(maxpos[TEXTSEG] & 0xffff, lishdl);
+		fputs(")\n", lishdl);
+
+		fputs("udef  : 0x", lishdl);
+		fput0x(maxpos[UDEFSEG] & 0xffff, 4, lishdl);
+		fputs(" (", lishdl);
+		fputd(maxpos[UDEFSEG] & 0xffff, lishdl);
+		fputs(")\n", lishdl);
+
 		j = 0;
 		for (i = 0; i < NAMEMAX; ++i) if (names[i * NLAST + NCHAR]) ++j;
-		fprintf(lishdl, "Names : %5d(%5d)\n", j, NAMEMAX);
+
+		fputs("Names : ", lishdl);
+		fputd(j, lishdl);
+		fputc('(', lishdl);
+		fputd(NAMEMAX, lishdl);
+		fputs(")\n", lishdl);
 	}
 
 	return errflag;

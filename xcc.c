@@ -190,8 +190,6 @@ enum {
  * Storage
  */
 
-int	argcid;			// hash value of reserved word
-int	argvid;			// hash value of reserved word
 int	csp;			// stackpointer seen from scope coding
 int	currseg;		// Current output segment
 int	debug;			// Add debug info to output
@@ -221,34 +219,49 @@ char	namech[NAMEMAX];
 char	nch;			// Next character in line being scanned
 char	outfn[PATHMAX];		// output filename
 char	sbuf[SBUFMAX];
+
+extern char *stdout;
 //exit(int code);
 //expression(int lval[]);
 //fclose(int hdl);
 //fgets(char *str, int siz, int hdl);
 //fopen(char *name, char *mode);
-//fprintf(int *, char *, ...);
 //fputc(int ch, int hdl);
 //getversion();
 //preprocess();
-//printf(char *, ...);
 //strcpy(char *dst, char *src);
 //strlen(char *str);
 //strncpy(char *dst, int n, char *src);
-//toupper(int ch);
 
 /*
  * Generate error messages
  */
 warning(char *msg) {
 	// Display original line
-	printf("%d: %s\n%%%s\n", inplnr, sbuf, msg);
-	fprintf(outhdl, ";%% %s\n", msg);
+	fputd(inplnr, stdout);
+	fputs(": ", stdout);
+	fputs(sbuf, stdout);
+	fputs("\n%", stdout);
+	fputs(msg, stdout);
+	fputc('\n', stdout);
+
+	fputs(";% ", outhdl);
+	fputs(msg, outhdl);
+	fputc('\n', outhdl);
 }
 
 expected(char *lit) {
 	// Display original line
-	printf("%d: %s\n%% %s expected\n", inplnr, sbuf, lit);
-	fprintf(outhdl, ";%% %s expected\n", lit);
+	fputd(inplnr, stdout);
+	fputs(": ", stdout);
+	fputs(sbuf, stdout);
+	fputs("\n", stdout);
+	fputs(lit, stdout);
+	fputs(" expected\n", stdout);
+
+	fputs(";% ", outhdl);
+	fputs(lit, outhdl);
+	fputc(" expected\n", outhdl);
 	errflag = 1;
 }
 
@@ -287,7 +300,10 @@ readline() {
 			sbuf[SBUFMAX - 1] = 0;
 			++inplnr;
 			if (maklis) {
-				fprintf(outhdl, "; %d %s", inplnr, sbuf);
+				fputs("; ", outhdl);
+				fputd(inplnr, outhdl);
+				fputc(' ', outhdl);
+				fputs(sbuf, outhdl);
 				if (sbuf[strlen(sbuf)-1] != '\n')
 					fputc('\n', outhdl);
 			}
@@ -484,7 +500,7 @@ symname(register int tab) {
 	i = nametab[tab];
 	if (i)
 		symname(i);
-	fprintf(outhdl, "%c", namech[tab]);
+	fputc(namech[tab], outhdl);
 }
 
 /*
@@ -534,7 +550,11 @@ open_file(char *fn, char *mode) {
 	fd = fopen(fn, mode);
 	if (fd > 0)
 		return fd;
-	printf("fopen(%s,%s) failed\n", fn, mode);
+	fputs("fopen(", stdout);
+	fputs(fn, stdout);
+	fputc(',', stdout);
+	fputs(mode, stdout);
+	fputs(") failed\n", stdout);
 	exit(1);
 }
 
@@ -546,13 +566,13 @@ toseg(register int newseg) {
 	if (currseg == newseg)
 		return 0;
 	if (newseg == CODESEG)
-		fprintf(outhdl, "\t.code\n");
+		fputs("\t.code\n", outhdl);
 	else if (newseg == DATASEG)
-		fprintf(outhdl, "\t.data\n");
+		fputs("\t.data\n", outhdl);
 	else if (newseg == TEXTSEG)
-		fprintf(outhdl, "\t.text\n");
+		fputs("\t.text\n", outhdl);
 	else if (newseg == UDEFSEG)
-		fprintf(outhdl, "\t.udef\n");
+		fputs("\t.udef\n", outhdl);
 	currseg = newseg;
 }
 
@@ -581,29 +601,29 @@ genequ(int lbl, int equ) {
  */
 genopc(int opc) {
 	switch (opc) {
-	case TOK_NEG : fprintf(outhdl, "\tneg"); break;
-	case TOK_NOT : fprintf(outhdl, "\tnot"); break;
-	case TOK_MUL : fprintf(outhdl, "\tmul"); break;
-	case TOK_DIV : fprintf(outhdl, "\tdiv"); break;
-	case TOK_MOD : fprintf(outhdl, "\tmod"); break;
-	case TOK_ADD : fprintf(outhdl, "\tadd"); break;
-	case TOK_SUB : fprintf(outhdl, "\tsub"); break;
-	case TOK_LSL : fprintf(outhdl, "\tlsl"); break;
-	case TOK_LSR : fprintf(outhdl, "\tlsr"); break;
-	case TOK_AND : fprintf(outhdl, "\tand"); break;
-	case TOK_XOR : fprintf(outhdl, "\txor"); break;
-	case TOK_OR  : fprintf(outhdl, "\tor"); break;
-	case TOK_SGT: fprintf(outhdl, "\tsgt"); break;
-	case TOK_SLT: fprintf(outhdl, "\tslt"); break;
-	case TOK_JSB : fprintf(outhdl, "\tjsb"); break;
-	case TOK_RSB : fprintf(outhdl, "\trsb"); break;
-	case TOK_LD: fprintf(outhdl, "\tld"); break;
-	case TOK_ST: fprintf(outhdl, "\tst"); break;
-	case TOK_JZ: fprintf(outhdl, "\tjz"); break;
-	case TOK_JNZ: fprintf(outhdl, "\tjnz"); break;
-	case TOK_PUSH: fprintf(outhdl, "\tpush"); break;
-	case TOK_PSHR: fprintf(outhdl, "\tpshr"); break;
-	case TOK_POPR: fprintf(outhdl, "\tpopr"); break;
+	case TOK_NEG : fputs("\tneg", outhdl); break;
+	case TOK_NOT : fputs("\tnot", outhdl); break;
+	case TOK_MUL : fputs("\tmul", outhdl); break;
+	case TOK_DIV : fputs("\tdiv", outhdl); break;
+	case TOK_MOD : fputs("\tmod", outhdl); break;
+	case TOK_ADD : fputs("\tadd", outhdl); break;
+	case TOK_SUB : fputs("\tsub", outhdl); break;
+	case TOK_LSL : fputs("\tlsl", outhdl); break;
+	case TOK_LSR : fputs("\tlsr", outhdl); break;
+	case TOK_AND : fputs("\tand", outhdl); break;
+	case TOK_XOR : fputs("\txor", outhdl); break;
+	case TOK_OR  : fputs("\tor", outhdl); break;
+	case TOK_SGT: fputs("\tsgt", outhdl); break;
+	case TOK_SLT: fputs("\tslt", outhdl); break;
+	case TOK_JSB : fputs("\tjsb", outhdl); break;
+	case TOK_RSB : fputs("\trsb", outhdl); break;
+	case TOK_LD: fputs("\tld", outhdl); break;
+	case TOK_ST: fputs("\tst", outhdl); break;
+	case TOK_JZ: fputs("\tjz", outhdl); break;
+	case TOK_JNZ: fputs("\tjnz", outhdl); break;
+	case TOK_PUSH: fputs("\tpush", outhdl); break;
+	case TOK_PSHR: fputs("\tpshr", outhdl); break;
+	case TOK_POPR: fputs("\tpopr", outhdl); break;
 	}
 }
 
@@ -614,34 +634,40 @@ gencode(int opc, int size, int lreg, int name, int ofs, int rreg) {
 	genopc(opc);
 
 	if (size == 0)
-		fprintf(outhdl, ".a");
+		fputs(".a", outhdl);
 	else if (size == 1)
-		fprintf(outhdl, ".b");
+		fputs(".b", outhdl);
 	else if (size == BPW)
-		fprintf(outhdl, ".w");
+		fputs(".w", outhdl);
 	else
 		fatal("unimplemented");
 
-	fprintf(outhdl, "\tr%d,", lreg);
+	fputs("\tr", outhdl);
+	fputd(lreg,outhdl);
+	fputc(',', outhdl);
 	if (name) {
-		if (name > 0){
-			fprintf(outhdl, "_");
+		fputc('_', outhdl);
+		if (name > 0)
 			symname(name);
-		} else
-			fprintf(outhdl, "_%d", -name);
+		else
+			fputd(-name, outhdl);
 	}
-	if (ofs > 0)
-		fprintf(outhdl, "+%d", ofs);
-	else if (ofs < 0)
-		fprintf(outhdl, "%d", ofs);
-	if (rreg)
-		fprintf(outhdl, "(r%d)", rreg);
+	if (ofs > 0) {
+		fputc('+', outhdl);
+		fputd(ofs, outhdl);
+	} else if (ofs < 0)
+		fputd(ofs, outhdl);
+	if (rreg) {
+		fputs("(r", outhdl);
+		fputd(rreg, outhdl);
+		fputc(')', outhdl);
+	}
 
 	// everything zero
 	if (!name && !ofs && !rreg)
 		fputc('0', outhdl);
 
-	fprintf(outhdl, "\n");
+	fputc('\n', outhdl);
 }
 
 gencode_L(int opc, int reg, int lbl) {
@@ -947,7 +973,7 @@ constant(register int lval[]) {
 		fputc(ch, outhdl);
 		gch();
 	}
-	fprintf(outhdl, "\",0\n");
+	fputs("\",0\n", outhdl);
 	gch(); // skip terminator
 
 	toseg(prevseg);
@@ -1000,25 +1026,6 @@ primary(register int lval[]) {
 
 			return 1;
 		}
-	}
-
-	// test for reserved words
-	if (sname == argcid) {
-		// generate (2(AP)-BPW)/BPW
-		lval[LTYPE] = ADDRESS;
-		lval[LPTR] = 0;
-		lval[LSIZE] = BPW;
-		lval[LNAME] = 0;
-		lval[LVALUE] = 0;
-		lval[LREG] = allocreg();
-
-		gencode(TOK_LD, BPW, lval[LREG], 0, BPW, REG_AP);
-		gencode(TOK_SUB, 0, lval[LREG], 0, BPW, 0);
-		gencode(TOK_LSR, 0, lval[LREG], 0, LOGBPW, 0);
-		return 1;
-	} else if (sname == argvid) {
-		exprerr();
-		return 0;
 	}
 
 	// todo: too soon, drop pre-processor first
@@ -1195,7 +1202,7 @@ expr_postfix(register int lval[]) {
 		if (lval[LTYPE] != FUNCTION)
 			error("Illegal function");
 
-		argc = BPW;
+		argc = 0;
 		sav_csp = csp;
 		blanks();
 		while (ch != ')') {
@@ -1212,15 +1219,14 @@ expr_postfix(register int lval[]) {
 				break;
 		}
 		needtoken(")");
-		// Push ARGC
-		gencode(TOK_PUSH, 0, REG_SP, 0, argc, 0);
 
 		// call
 		gencode_lval(TOK_JSB, REG_SP, lval);
 		freelval(lval);
 
 		// Pop args
-		gencode(TOK_ADD, 0, REG_SP, 0, argc, 0);
+		if (argc)
+			gencode(TOK_ADD, 0, REG_SP, 0, argc, 0);
 
 		csp = sav_csp;
 
@@ -2000,16 +2006,18 @@ dumpsw(int swbase, int codlbl, int endlbl) {
 			}
 		}
 		if (!cnt++)
-			fprintf(outhdl, "\t.dcw\t_%d", lbl);
+			fputs("\t.dcw\t", outhdl);
 		else
-			fprintf(outhdl, ",_%d", lbl);
+			fputc(',', outhdl);
+		fputc('_', outhdl);
+		fputd(lbl, outhdl);
 		if (cnt > 15) {
-			fprintf(outhdl, "\n");
+			fputs("\n", outhdl);
 			cnt = 0;
 		}
 	}
 	if (cnt)
-		fprintf(outhdl, "\n");
+		fputc('\n', outhdl);
 	toseg(prevseg);
 
 	// generate code (use j as reg)
@@ -2348,11 +2356,23 @@ dump_ident(int ident[]) {
 		typenames[4] = "BRANCH";
 	}
 
-	fprintf(outhdl, "; IDENT=");
+	fputs("; IDENT=", outhdl);
 	symname(ident[ISYM]);
-	fprintf(outhdl, " CLASS=%s TYPE=%s PTR=%d SIZE=%d NAME=", classnames[ident[ICLASS]], typenames[ident[ITYPE]], ident[IPTR], ident[ISIZE]);
+	fputs(" CLASS=", outhdl);
+	fputs(classnames[ident[ICLASS]], outhdl);
+	fputs(" TYPE=", outhdl);
+	fputs(typenames[ident[ITYPE]], outhdl);
+	fputs(" PTR=", outhdl);
+	fputd(ident[IPTR], outhdl);
+	fputs(" SIZE=", outhdl);
+	fputd(ident[ISIZE], outhdl);
+	fputs(" NAME=", outhdl);
 	symname(ident[INAME]);
-	fprintf(outhdl, " VALUE=%d REG=%d\n", ident[IVALUE], ident[IREG]);
+	fputs(" VALUE=", outhdl);
+	fputd(ident[IVALUE], outhdl);
+	fputs(" REG=", outhdl);
+	fputd(ident[IREG], outhdl);
+	fputc('\n', outhdl);
 }
 
 
@@ -2516,23 +2536,25 @@ declvar(int scope, register int clas) {
 			sym[IREG] = REG_SP;
 		} else if (sym[ICLASS] != EXTERNAL) {
 			toseg(UDEFSEG);
-			fprintf(outhdl, "_");
+			fputc('_', outhdl);
 			symname(sname);
-			fprintf(outhdl, ":");
+			fputc(':', outhdl);
 
 			if (clas != STATIC)
-				fprintf(outhdl, ":");
+				fputc(':', outhdl);
 
 			if (type == ADDRESS) {
 				if (ptr <= 1 && size == 1)
-					fprintf(outhdl, "\t.dsb\t%d\n", cnt);
+					fputs("\t.dsb\t", outhdl);
 				else
-					fprintf(outhdl, "\t.dsw\t%d\n", cnt);
+					fputs("\t.dsw\t", outhdl);
+				fputd(cnt, outhdl);
+				fputc('\n', outhdl);
 			} else {
 				if (!ptr && size == 1)
-					fprintf(outhdl, "\t.dsb\t1\n");
+					fputs("\t.dsb\t1\n", outhdl);
 				else
-					fprintf(outhdl, "\t.dsw\t1\n");
+					fputs("\t.dsw\t1\n", outhdl);
 			}
 		}
 		dump_ident(sym);
@@ -2632,7 +2654,7 @@ declarg(int scope, register int clas, register int argnr) {
  *
  */
 declfunc(int clas) {
-	int returnlbl, len, sname, inireg, sav_argc, scope, pshrlbl;
+	int returnlbl, len, sname, inireg, sav_argc, scope, pshrequ;
 	register int *sym, i, numarg;
 
 	returnlbl = ++nxtlabel;
@@ -2642,8 +2664,10 @@ declfunc(int clas) {
 	csp = 0; // reset stack
 	swinx = 1;
 	toseg(CODESEG);
-	if (verbose)
-		printf("%s\n", lptr);
+	if (verbose) {
+		fputs(lptr, outhdl);
+		fputc('\n', outhdl);
+	}
 
 	// get procedure name
 	if (!(len = dohash(lptr, &sname))) {
@@ -2677,12 +2701,12 @@ declfunc(int clas) {
 	dump_ident(sym);
 
 	// Generate global label
-	fprintf(outhdl, "_");
+	fputc('_', outhdl);
 	symname(sname);
-	fprintf(outhdl, "::");
+	fputs("::", outhdl);
 	gencode(TOK_LD, 0, REG_RETURN, 0, 0, REG_SP);
-	pshrlbl = ++nxtlabel;
-	gencode(TOK_PSHR, 0, REG_SP, -pshrlbl, 0, 0);
+	pshrequ = ++nxtlabel;
+	gencode(TOK_PSHR, 0, REG_SP, -pshrequ, 0, 0);
 	gencode(TOK_LD, 0, REG_AP, 0, 0, REG_RETURN);
 
 	// get parameters
@@ -2717,7 +2741,7 @@ declfunc(int clas) {
 		sym = &syms[i * ILAST];
 
 		// tweak AP offsets
-		sym[IVALUE] += numarg * BPW;
+		sym[IVALUE] += numarg * BPW - BPW;
 
 		// generate code for register parameters
 		if (sym[ICLASS] == REGISTER) {
@@ -2833,22 +2857,20 @@ initialize() {
 
 	// reserve first entry so it terminates lists
 	namech[0] = '?';
-
-	// reserved words
-	dohash("ARGC", &argcid);
-	dohash("ARGV", &argvid);
 }
 
 /*
  * Process commandline
  */
 usage() {
-	printf("X-C-Compiler, Version %s\n\n", getversion());
+	fputs("X-C-Compiler, Version ", stdout);
+	fputs(getversion(), stdout);
+	fputs("\n\n", stdout);
 
-	printf("usage: xcc <file>[.<ext>]\n");
-	printf("  -h\t\t\tInclude high-level source\n");
-	printf("  -S <file>[.<ext>]]\tAssembler output\n");
-	printf("  -v\t\t\tVerbose\n");
+	fputs("usage: xcc <file>[.<ext>]\n", stdout);
+	fputs("  -h\t\t\tInclude high-level source\n", stdout);
+	fputs("  -S <file>[.<ext>]]\tAssembler output\n", stdout);
+	fputs("  -v\t\t\tVerbose\n", stdout);
 	exit(1);
 }
 
@@ -2942,16 +2964,32 @@ main(int argc, int *argv) {
 	toseg(CODESEG); // setup initial segment
 	parse(); // GO !!!
 
-	fprintf(outhdl, "\t.end\n");
+	fputs("\t.end\n", outhdl);
 
 	j = 0;
 	for (i = 0; i < NAMEMAX; ++i) if (namech[i]) ++j;
-	fprintf(outhdl, "; Names        : %5d/%5d\n", j, NAMEMAX);
-	for (i = 0; i < SYMMAX && syms[i * ILAST + ISYM]; ++i);
-	fprintf(outhdl, "; Identifiers  : %5d/%5d\n", i, SYMMAX);
-	fprintf(outhdl, "; Local labels : %5d\n", nxtlabel);
+	fputs("; Names        : ", outhdl);
+	fputd(j, outhdl);
+	fputc('/', outhdl);
+	fputd(NAMEMAX, outhdl);
+	fputc('\n', outhdl);
+
+	fputs("; Identifiers  : ", outhdl);
+	fputd(i, outhdl);
+	fputc('/', outhdl);
+	fputd(SYMMAX, outhdl);
+	fputc('\n', outhdl);
+
+	fputs("; Local labels : ", outhdl);
+	fputd(nxtlabel, outhdl);
+	fputc('\n', outhdl);
+
 	for (i = 1; (i < SWMAX) && sw[i * SLAST + SLABEL]; ++i);
-	fprintf(outhdl, "; Switch cases : %5d/%5d\n", i - 1, SWMAX);
+	fputs("; Switch cases : ", outhdl);
+	fputd(i - 1, outhdl);
+	fputc('/', outhdl);
+	fputd(SWMAX, outhdl);
+	fputc('\n', outhdl);
 
 	return errflag;
 }

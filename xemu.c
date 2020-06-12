@@ -292,11 +292,6 @@ uint16_t pushArgs(uint16_t sp, char *argv[]) {
 	image[sp + 0] = (sp + 4) >> 8;
 	image[sp + 1] = (sp + 4);
 
-	// push size of push-frame
-	sp -= BPW;
-	image[sp + 0] = 0;
-	image[sp + 1] = 3 * BPW;
-
 	// push return address
 	sp -= BPW;
 	image[sp + 0] = 0;

@@ -153,13 +153,13 @@ char	objfn[PATHMAX];		// .OBJ filename
 char	olbfn[PATHMAX];		// source .OLB filename
 char	outfn[PATHMAX];		// destination .OLB filename
 
+extern char *stdout;
 //exit(int code);
 //fclose(int hdl);
 //fopen(char *name, char *mode);
 //fread(char *buf, int siz, int cnt, int hdl);
 //fseek(int hdl, int pos, int whence);
 //fwrite(char *buf, int siz, int cnt, int hdl);
-//printf(char *, ...);
 //rename(char *old, char *new);
 //strcpy(char *dst, char *src);
 //strncpy(char *dst, int n, char *src);
@@ -169,7 +169,7 @@ char	outfn[PATHMAX];		// destination .OLB filename
  *
  */
 error(char *msg) {
-	printf("%s");
+	fputs("%s", stdout);
 	errflag = 1;
 }
 
@@ -192,7 +192,7 @@ outname(register int hash) {
 		i = outname(i); // display and get length string
 	else
 		i = 0; // nothing displayed yet
-	printf("%c", name[hash * NLAST + NCHAR]);
+	fputc(name[hash * NLAST + NCHAR], stdout);
 	return i + 1; // Increment length
 }
 
@@ -236,7 +236,7 @@ dohash(register char *ident, int *retval) {
 				if (hash >= olbhdr[HNAME])
 					hash -= olbhdr[HNAME];
 				if (hash == start) {
-					printf("name table overflow\n");
+					fputs("name table overflow\n", stdout);
 					exit(1);
 				}
 			}
@@ -255,7 +255,7 @@ read_byte() {
 	char arr[1];
 
 	if (fread(arr, 1, 1, objhdl) != 1) {
-		printf("missing .END (use -v to discover where)\n");
+		fputs("missing .END (use -v to discover where)\n", stdout);
 		exit(1);
 	}
 
@@ -271,7 +271,7 @@ read_word() {
 	int w;
 
 	if (fread(arr, 1, 2, objhdl) != 2) {
-		printf("missing .END (use -v to discover where)\n");
+		fputs("missing .END (use -v to discover where)\n", stdout);
 		exit(1);
 	}
 
@@ -308,7 +308,7 @@ read_word_olb() {
 	int w;
 
 	if (fread(arr, 1, 2, olbhdl) != 2) {
-		printf("missing .END (use -v to discover where)\n");
+		fputs("missing .END (use -v to discover where)\n", stdout);
 		exit(1);
 	}
 
@@ -327,7 +327,11 @@ open_file(char *fn, char *mode) {
 	fd = fopen(fn, mode);
 	if (fd > 0)
 		return fd;
-	printf("fopen(%s,%s) failed\n", fn, mode);
+	fputs("fopen(", stdout);
+	fputs(fn, stdout);
+	fputc(',', stdout);
+	fputs(mode, stdout);
+	fputs(") failed\n", stdout);
 	exit(1);
 }
 
@@ -341,8 +345,11 @@ open_olb() {
 	olbhdl = fopen(olbfn, "r");
 
 	if (!olbhdl) {
-		if (verbose)
-			printf("Creating library %s\n", olbfn);
+		if (verbose) {
+			fputs("Creating library ", stdout);
+			fputs(olbfn, stdout);
+			fputc('\n', stdout);
+		}
 
 		// init header for empty archive
 		olbhdr[HNAME] = NAMEMAX;
@@ -352,8 +359,13 @@ open_olb() {
 		return;
 	}
 
-	if (verbose)
-		printf("Loading library %s %d\n", olbfn, olbhdl);
+	if (verbose) {
+		fputs("Loading library ", stdout);
+		fputs(olbfn, stdout);
+		fputc(' ', stdout);
+		fputd(olbhdl, stdout);
+		fputc('\n', stdout);
+	}
 
 	for (i = 0; i < HLAST; ++i)
 		olbhdr[i] = read_word_olb();
@@ -386,11 +398,11 @@ copy_obj(register int hdl, register int ofs, register int len) {
 		if (tmplen > 512)
 			tmplen = 512;
 		if ((i = fread(datbuf, 1, tmplen, hdl)) != tmplen) {
-			printf("error reading .OLB during copy\n");
+			fputs("error reading .OLB during copy\n", stdout);
 			exit(1);
 		}
 		if ((i = fwrite(datbuf, 1, tmplen, outhdl)) != tmplen) {
-			printf("error writinging .OLB during copy\n");
+			fputs("error writinging .OLB during copy\n", stdout);
 			exit(1);
 		}
 		len -= tmplen;
@@ -403,17 +415,22 @@ copy_obj(register int hdl, register int ofs, register int len) {
 objmap() {
 	register int i, *p, len;
 
-	printf("id       filename          offset       length   \n");
-	printf("-- -------------------- ------------ ------------\n");
+	fputs("id        module        BASE LEN\n", stdout);
+	fputs("-- -------------------- ---- ----\n", stdout);
 
 	for (i = 0; i < olbhdr[HFILE]; ++i) {
 		p = &file[i * FLAST];
-		printf("%2d ", i + 1);
+		if (i+1 < 10)
+			fputc(' ', stdout);
+		fputd(i+1, stdout);
+		fputc(' ', stdout);
 		len = outname(p[FNAME]);
 		while (len++ <= 20)
-			printf(" ");
-		printf("%04x (%5d) %04x (%5d)\n",
-		       p[FOFFSET], p[FOFFSET], p[FLENGTH], p[FLENGTH]);
+			fputc(' ', stdout);
+		fput0x(p[FOFFSET], 4, stdout);
+		fputc(' ', stdout);
+		fput0x(p[FLENGTH], 4, stdout);
+		fputc('\n', stdout);
 	}
 }
 
@@ -430,9 +447,12 @@ symmap(register int start) {
 			p = &name[hash * NLAST];
 			if ((p[NCHAR] == ch) && (p[NTAB] == tab)) {
 				if (p[NLIB] != -1) {
-					printf("%2d ", p[NLIB] + 1);
+					if (p[NLIB] + 1 < 10)
+						fputc(' ', stdout);
+					fputd(p[NLIB] + 1, stdout);
+					fputc(' ', stdout);
 					outname(hash);
-					printf("\n");
+					fputc('\n', stdout);
 				}
 				symmap(hash);
 				break; // Inner loop
@@ -452,9 +472,9 @@ symmap(register int start) {
  */
 do_lis() {
 	open_olb();
-	printf("Object statistics : \n");
+	fputs("Object statistics : \n", stdout);
 	objmap();
-	printf("\nSymboltable : \n\n");
+	fputs("\nSymboltable : \n\n", stdout);
 	symmap(0);
 	fclose(olbhdl);
 }
@@ -500,8 +520,11 @@ do_add() {
 	// open inputfile
 	open_olb();
 
-	if (verbose)
-		printf("Loading module %s\n", objfn);
+	if (verbose) {
+		fputs("Loading module ", stdout);
+		fputs(objfn, stdout);
+		fputc('\n', stdout);
+	}
 
 	// first delete any existing occurrences
 	dohash(modn, &hash);
@@ -522,7 +545,7 @@ do_add() {
 		objinx = olbhdr[HFILE]++;
 		// create new object at end of list
 		if (objinx >= FILEMAX) {
-			printf("Too many modules in library\n");
+			fputs("Too many modules in library\n", stdout);
 			exit(1);
 		}
 		// update file entry
@@ -609,15 +632,21 @@ do_add() {
 				p = &name[hash * NLAST];
 				if (p[NLIB] != -1) {
 					// get name of library already containing symbol
-					printf("Symbol '%s' already defined in module ", datbuf);
+					fputs("Symbol '", stdout);
+					fputs(datbuf, stdout);
+					fputs("' already defined in module ", stdout);
 					soutname(file[p[NLIB] * FLAST + FNAME], datbuf);
-					printf("%s\n", datbuf);
+					fputs(datbuf, stdout);
+					fputc('\n', stdout);
 					++error;
 				} else {
 					// new symbol
 					p[NLIB] = objinx;
-					if (debug)
-						printf("SYMDEF: %s\n", datbuf);
+					if (debug) {
+						fputs("SYMDEF: ", stdout);
+						fputs(datbuf, stdout);
+						fputc('\n', stdout);
+					}
 				}
 				break;
 			case REL_CODEORG:
@@ -628,7 +657,8 @@ do_add() {
 				objlen += 1 + BPW;
 				break;
 			default:
-				printf("unknown command %d\n", cmd);
+				fputs("\"unknown command ", stdout);
+				fput0x(cmd & 0xff, 2, stdout);
 				exit(1);
 				break;
 			}
@@ -650,11 +680,14 @@ do_add() {
 
 	// if no errors occurred then generate new library
 	if (error) {
-		printf("module not inserted\n");
+		fputs("module not inserted\n", stdout);
 		exit(1);
 	}
-	if (debug)
-		printf("module length: %d\n", objlen);
+	if (debug) {
+		fputs("module length: ", stdout);
+		fputd(objlen, stdout);
+		fputc('\n', stdout);
+	}
 
 	// build new library
 	unlink(outfn);
@@ -701,7 +734,7 @@ do_del() {
 		if (file[objinx * FLAST + FNAME] == hash)
 			break;
 	if (objinx >= olbhdr[HFILE]) {
-		printf("module not found\n");
+		fputs("module not found\n", stdout);
 		exit(1);
 	}
 
@@ -777,7 +810,7 @@ do_ext() {
 			break;
 	}
 	if (objinx >= olbhdr[HFILE]) {
-		printf("module not found\n");
+		fputs("module not found\n", stdout);
 		exit(1);
 	}
 
@@ -814,15 +847,17 @@ initialize() {
  * Process commandline
  */
 usage() {
-	printf("X-Archiver, Version %s\n\n", getversion());
+	fputs("X-Archiver, Version ", stdout);
+	fputs(getversion(), stdout);
+	fputs("\n\n", stdout);
 
-	printf("usage: xar (a|c|d|l|x) <library>[.<ext>] [<object>[.<ext>] ... \n");
-	printf("  a  Add a module\n");
-	printf("  c  Create a new library\n");
-	printf("  d  Delete a module\n");
-	printf("  t  List the library\n");
-	printf("  x  Extract a module\n");
-	printf("  -v Verbose\n");
+	fputs("usage: xar (a|c|d|l|x) <library>[.<ext>] [<object>[.<ext>] ... \n", stdout);
+	fputs("  a  Add a module\n", stdout);
+	fputs("  c  Create a new library\n", stdout);
+	fputs("  d  Delete a module\n", stdout);
+	fputs("  t  List the library\n", stdout);
+	fputs("  x  Extract a module\n", stdout);
+	fputs("  -v Verbose\n", stdout);
 	exit(1);
 }
 
@@ -931,8 +966,12 @@ main(int argc, int *argv) {
 	initialize(); // initialize all variables
 	startup(argv); // Process commandline options
 	if (debug) {
-		printf("Library  : '%s'\n", olbfn);
-		printf("Object   : '%s'\n", objfn);
+		fputs("Library  : '", stdout);
+		fputs(olbfn, stdout);
+		fputs("'\n", stdout);
+		fputs("Object   : '", stdout);
+		fputs(objfn, stdout);
+		fputs("'\n", stdout);
 	}
 
 	switch (usercmd) {
@@ -956,7 +995,12 @@ main(int argc, int *argv) {
 	if (debug) {
 		j = 0;
 		for (i = 0; i < olbhdr[HNAME]; ++i) if (name[i * NLAST + NCHAR]) ++j;
-		printf("Names        : %5d/%5d\n", j, olbhdr[HNAME]);
+
+		fputs("Names        : ", stdout);
+		fputd(j, stdout);
+		fputc('/', stdout);
+		fputd(olbhdr[HNAME], stdout);
+		fputc('\n', stdout);
 	}
 
 	return 0;

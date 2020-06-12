@@ -3,7 +3,7 @@ int stdout;
 int stderr;
 
 osprint(char *str) {
-	asm("ld.a r1,4(r14)");
+	asm("ld.a r1,2(r14)"); // load `str` into r1
 	asm("svc.a r1,31");
 }
 
@@ -15,7 +15,7 @@ fread(char *buf, int siz, int cnt, int hdl) {
 	ctrl[2] = cnt;
 	ctrl[3] = hdl;
 
-	asm("ld.a r1,0(r15)");
+	asm("ld.a r1,0(r15)"); // load address of `ctrl` into r1
 	return asm("svc.a r1,40");
 }
 
