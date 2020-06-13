@@ -1074,7 +1074,7 @@ gencode_expr(int tok, register int lval[], register int rval[]) {
 	} else {
 		loadlval(lval, 0);
 
-		// Execute operation and release rval
+		// Perform operation and release rval
 		gencode_lval(tok, lval[LREG], rval);
 		freelval(rval);
 	}
@@ -1461,7 +1461,16 @@ expr_addsub(int lval[]) {
 			}
 		}
 
-		gencode_expr(tok, lval, rval);
+		// Generate code
+		if (lval[LTYPE] == ADDRESS && isConstant(rval)) {
+			lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
+		} else {
+			loadlval(lval, 0);
+
+			// Perform operation and release rval
+			gencode_lval(tok, lval[LREG], rval);
+			freelval(rval);
+		}
 	}
 }
 
