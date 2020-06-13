@@ -236,7 +236,7 @@ int	verbose;		// Verbose -v specified
 
 char	ch;			// Current character in line being scanned
 char	ctype[256];		// character properties
-char	datbuf[128];		// storage buffer for sto_data
+char	datbuf[128];		// storage buffer for sto_byte/sto_word
 char	inpfn[PATHMAX];		// input filename
 char	lisfn[PATHMAX];		// listing filename
 char	*lptr;			// Pointer to current character in input buffer
@@ -546,8 +546,8 @@ write_byte(char byte) {
  */
 write_word(int word) {
 	char arr[2];
-	arr[0] = word >> 8;
-	arr[1] = word;
+	arr[0] = word;
+	arr[1] = word >> 8;
 
 	fwrite(arr, 1, 2, outhdl);
 }
@@ -600,17 +600,19 @@ sto_flush() {
 /*
  *
  */
-sto_data(int val, int size) {
-	if (size == BPW) {
-		// store upper byte
-		if (datlen == 128)
-			sto_flush();
-		datbuf[datlen++] = val >> 8;
-	}
+sto_byte(char byte) {
 	// store lower byte
 	if (datlen == 128)
 		sto_flush();
-	datbuf[datlen++] = val;
+	datbuf[datlen++] = byte;
+}
+
+/*
+ *
+ */
+sto_word(int word) {
+	sto_byte (word);
+	sto_byte (word >> 8);
 }
 
 /*
@@ -1371,7 +1373,7 @@ need_reg() {
 			reg = p[NVALUE];
 	}
 	// process reg
-	sto_data(reg, 1);
+	sto_byte(reg);
 }
 
 /*
@@ -1382,7 +1384,7 @@ need_imm() {
 
 	expression(lval);
 	if (lval[LTYPE] == CONSTANT)
-		sto_data(lval[LVALUE], BPW);
+		sto_word(lval[LVALUE]);
 	else {
 		loadlval(lval);
 		sto_cmd(REL_POPW, 0);
@@ -1399,12 +1401,12 @@ need_mem() {
 	if (ch != '(')
 		need_imm();
 	else
-		sto_data(0, BPW); // no address
+		sto_word(0); // no address
 
 	// test for registers
 	blanks();
 	if (ch != '(') {
-		sto_data(0, 1); // dummy reg
+		sto_byte(0); // dummy reg
 	} else {
 		gch();
 		blanks();
@@ -1504,12 +1506,12 @@ need_risc() {
 		rreg = 0;
 
 	// registers
-	sto_data(rreg << 4 | lreg, 1);
+	sto_byte(rreg << 4 | lreg);
 	// immediate
 	if (lval[LTYPE] == 0) {
-		sto_data(0, BPW);
+		sto_word(0);
 	} else if (lval[LTYPE] == CONSTANT) {
-		sto_data(lval[LVALUE], BPW);
+		sto_word(lval[LVALUE]);
 	} else {
 		loadlval(lval);
 		sto_cmd(REL_POPW, 0);
@@ -1554,8 +1556,12 @@ do_pseudo(register int p[]) {
 			if (match("\"")) {
 				while (ch && (ch != '"')) {
 					val = litchar();
-					if (pass == 2)
-						sto_data(val, size);
+					if (pass == 2) {
+						if (size == 1)
+							sto_byte(val);
+						else
+							sto_word(val);
+					}
 					curpos[curseg] += size;
 				}
 				gch(); // skip terminator
@@ -1572,9 +1578,9 @@ do_pseudo(register int p[]) {
 						else
 							sto_cmd(REL_POPW, 0);
 					} else if (size == BPW)
-						sto_data(lval[LVALUE], BPW);
+						sto_word(lval[LVALUE]);
 					else if ((lval[LVALUE] >= -128) && (lval[LVALUE] <= 127))
-						sto_data(lval[LVALUE], 1);
+						sto_byte(lval[LVALUE]);
 					else
 						error("constant out of range");
 				}
@@ -1637,7 +1643,7 @@ do_opcode(register int p[]) {
 		curpos[curseg] += 4;
 		ch = 0; // ignore rest of line
 	} else {
-		sto_data(p[NVALUE], 1);
+		sto_byte(p[NVALUE]);
 		need_risc();
 		curpos[curseg] += 4;
 	}

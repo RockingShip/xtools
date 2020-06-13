@@ -2673,10 +2673,6 @@ declarg(int scope, register int clas, register int argnr) {
 		sym[IVALUE] = (-argnr + 1) * BPW;
 		sym[IREG] = REG_AP;
 
-		// modify location if chars. Chars are pushed as words, adjust to point to lo-byte
-		if (size == 1 && !ptr)
-			sym[IVALUE] += BPW - 1;
-
 		dump_ident(sym);
 
 		// only one

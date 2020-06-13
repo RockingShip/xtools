@@ -275,8 +275,9 @@ read_word() {
 		exit(1);
 	}
 
-	// return signed
-	w = arr[0] << 8 | (arr[1] & 0xff);
+	// get word
+	w = (arr[1] << 8) | (arr[0] & 0xff);
+	// sign extend
 	w |= -(w & (1 << SBIT));
 	return w;
 }
@@ -294,8 +295,8 @@ write_byte(char byte) {
 write_word(int word) {
 	char arr[2];
 
-	arr[0] = word >> 8;
-	arr[1] = word;
+	arr[0] = word;
+	arr[1] = word >> 8;
 
 	fwrite(arr, 1, 2, outhdl);
 }
@@ -312,8 +313,9 @@ read_word_olb() {
 		exit(1);
 	}
 
-	// return signed
-	w = arr[0] << 8 | (arr[1] & 0xff);
+	// get word
+	w = (arr[1] << 8) | (arr[0] & 0xff);
+	// sign extend
 	w |= -(w & (1 << SBIT));
 	return w;
 }

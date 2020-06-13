@@ -271,8 +271,8 @@ uint16_t pushArgs(uint16_t sp, char *argv[]) {
 
 	// copy strings
 	for (i = 0; i < argc; i++) {
-		image[argvbase++] = strbase >> 8;
 		image[argvbase++] = strbase;
+		image[argvbase++] = strbase >> 8;
 		for (arg = argv[i]; *arg; arg++)
 			image[strbase++] = *arg;
 		image[strbase++] = 0;
@@ -284,13 +284,13 @@ uint16_t pushArgs(uint16_t sp, char *argv[]) {
 
 	// push argc
 	sp -= BPW;
-	image[sp + 0] = argc >> 8;
-	image[sp + 1] = argc;
+	image[sp + 0] = argc;
+	image[sp + 1] = argc >> 8;
 
 	// push argv
 	sp -= BPW;
-	image[sp + 0] = (sp + 4) >> 8;
-	image[sp + 1] = (sp + 4);
+	image[sp + 0] = (sp + 4);
+	image[sp + 1] = (sp + 4) >> 8;
 
 	// push return address
 	sp -= BPW;
@@ -316,7 +316,7 @@ void disp_reg(uint16_t pc) {
 }
 
 void disp_opc(uint16_t pc) {
-		printf("%s r%d,%02x%02x", opc_name[image[pc + 0]], image[pc + 1] & 0xf, image[pc + 2], image[pc + 3]);
+		printf("%s r%d,%02x%02x", opc_name[image[pc + 0]], image[pc + 1] & 0xf, image[pc + 3], image[pc + 2]);
 		if ((image[pc + 1] >> 4) & 0xf)
 			printf("(r%d)", (image[pc + 1] >> 4) & 0xf);
 		putchar ('\n');
@@ -334,7 +334,7 @@ void disp_dump(uint16_t pc) {
 		printf("%04x:", loc);
 		cp = &image[loc];
 		for (j = 0; j < 8; j++, cp += 2)
-			printf(" %02x%02x", cp[0], cp[1]);
+			printf(" %02x%02x", cp[1], cp[0]);
 		printf("\n");
 	}
 
@@ -355,17 +355,17 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 	switch (id) {
 	case 31: { /* osprint() */
 		uint8_t *pb = &image[regs[lreg] & 0xFFFF]; /* get addr parmblock */
-		char *str = &image[pb[0] << 8 | pb[1]]; /* get addr string */
+		char *str = &image[(pb[1] << 8) | (pb[0] & 0xff)]; /* get addr string */
 
 		fputs(str, stdout);
 		break;
 	}
 	case 40: { /* fread() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		ctrl[0] = pb[0] << 8 | pb[1];
-		ctrl[1] = pb[2] << 8 | pb[3];
-		ctrl[2] = pb[4] << 8 | pb[5];
-		ctrl[3] = pb[6] << 8 | pb[7];
+		ctrl[0] = (pb[1] << 8) | (pb[0] & 0xff);
+		ctrl[1] = pb[3] << 8 | pb[2];
+		ctrl[2] = pb[5] << 8 | pb[4];
+		ctrl[3] = pb[7] << 8 | pb[6];
 		char *addr = &image[ctrl[0]];
 
 		if (ctrl[3] < 0 || ctrl[3] >= FILEMAX || !handles[ctrl[3]])
@@ -376,10 +376,10 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 	}
 	case 41: { /* fwrite() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		ctrl[0] = pb[0] << 8 | pb[1];
-		ctrl[1] = pb[2] << 8 | pb[3];
-		ctrl[2] = pb[4] << 8 | pb[5];
-		ctrl[3] = pb[6] << 8 | pb[7];
+		ctrl[0] = (pb[1] << 8) | (pb[0] & 0xff);
+		ctrl[1] = pb[3] << 8 | pb[2];
+		ctrl[2] = pb[5] << 8 | pb[4];
+		ctrl[3] = pb[7] << 8 | pb[6];
 		char *addr = &image[ctrl[0]];
 
 		if (ctrl[3] < 0 || ctrl[3] >= FILEMAX || !handles[ctrl[3]])
@@ -390,8 +390,8 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 	}
 	case 42: { /* fopen() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		ctrl[0] = pb[0] << 8 | pb[1];
-		ctrl[1] = pb[2] << 8 | pb[3];
+		ctrl[0] = (pb[1] << 8) | (pb[0] & 0xff);
+		ctrl[1] = pb[3] << 8 | pb[2];
 		char *name = &image[ctrl[0]]; /* get addr string */
 		char *mode = &image[ctrl[1]]; /* get addr string */
 
@@ -409,7 +409,7 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 	}
 	case 43: { /* fclose() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		ctrl[0] = pb[0] << 8 | pb[1];
+		ctrl[0] = (pb[1] << 8) | (pb[0] & 0xff);
 
 		if (ctrl[0] < 0 || ctrl[0] >= FILEMAX || !handles[ctrl[0]])
 			regs[lreg] = -1;
@@ -422,9 +422,9 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 	}
 	case 44: { /* fseek() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		ctrl[0] = pb[0] << 8 | pb[1];
-		ctrl[1] = pb[2] << 8 | pb[3];
-		ctrl[2] = pb[4] << 8 | pb[5];
+		ctrl[0] = (pb[1] << 8) | (pb[0] & 0xff);
+		ctrl[1] = pb[3] << 8 | pb[2];
+		ctrl[2] = pb[5] << 8 | pb[4];
 
 		long ofs = ctrl[1];
 
@@ -442,15 +442,15 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 	}
 	case 45: { /* unlink() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		char *name = &image[pb[0] << 8 | pb[1]]; /* get addr string */
+		char *name = &image[(pb[1] << 8) | (pb[0] & 0xff)]; /* get addr string */
 
 		regs[lreg] = unlink(name);
 		break;
 	}
 	case 46: { /* rename() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		ctrl[0] = pb[0] << 8 | pb[1];
-		ctrl[1] = pb[2] << 8 | pb[3];
+		ctrl[0] = (pb[1] << 8) | (pb[0] & 0xff);
+		ctrl[1] = pb[3] << 8 | pb[2];
 		char *oldname = &image[ctrl[0]]; /* get addr string */
 		char *newname = &image[ctrl[1]]; /* get addr string */
 
@@ -459,7 +459,7 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 	}
 	case 47: { /* ftell() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		ctrl[0] = pb[0] << 8 | pb[1];
+		ctrl[0] = (pb[1] << 8) | (pb[0] & 0xff);
 
 		if (ctrl[0] < 0 || ctrl[0] >= FILEMAX || !handles[ctrl[0]])
 			regs[lreg] = -1;
@@ -473,7 +473,7 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 			char **cpp;
 
 			uint8_t *pb = &image[regs[lreg] & 0xFFFF]; /* get addr parmblock */
-			char *args = &image[pb[0] << 8 | pb[1]]; /* get addr string */
+			char *args = &image[(pb[1] << 8) | (pb[0] & 0xff)]; /* get addr string */
 
 			/* concat argv[] except for argv[0] */
 			cpp = inpargv + 1;
@@ -496,7 +496,7 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 		break;
 	case 99: { /* exit() */
 		uint8_t *pb = &image[regs[lreg] & 0xffff]; /* get addr parmblock */
-		ctrl[0] = pb[0] << 8 | pb[1];
+		ctrl[0] = (pb[1] << 8) | (pb[0] & 0xff);
 
 		shutdown(ctrl[0]);
 		break;
@@ -550,8 +550,8 @@ void run(uint16_t inisp) {
 		opc = image[pc++];
 		lreg = image[pc] & 0xF;
 		ea = regs[(image[pc++] >> 4) & 0xF];
-		ea += image[pc++] << 8;
 		ea += image[pc++] & 0xFF;
+		ea += image[pc++] << 8;
 
 		if (opc == OPC_ST + 1) {
 			cp = &image[ea & 0xffff];
@@ -560,15 +560,15 @@ void run(uint16_t inisp) {
 		} else if (opc == OPC_ST + 2) {
 			cp = &image[ea & 0xffff];
 			lval = regs[lreg];
-			cp[0] = lval >> 8;
-			cp[1] = lval;
+			cp[0] = lval;
+			cp[1] = lval >> 8;
 		} else {
 			if ((opc & 3) == 1) {
 				cp = &image[ea & 0xffff];
 				ea = cp[0];
 			} else if ((opc & 3) == 2) {
 				cp = &image[ea & 0xffff];
-				ea = (cp[0] << 8) + (cp[1] & 0xFF);
+				ea = (cp[1] << 8) | (cp[0] & 0xFF);
 			}
 
 			switch (opc & ~3) {
@@ -633,21 +633,21 @@ void run(uint16_t inisp) {
 				/* save old PC */
 				regs[lreg] -= BPW;
 				cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
-				cp[0] = pc >> 8;
-				cp[1] = pc;
+				cp[0] = pc;
+				cp[1] = pc >> 8;
 				/* update PC */
 				pc = ea & 0xffff;
 				break;
 			case OPC_RSB:
 				cp = &image[regs[lreg] & 0xffff]; // get EA of (lreg)+
 				regs[lreg] += BPW;
-				pc = ((cp[0] << 8) + (cp[1] & 0xFF)) & 0xffff;
+				pc = ((cp[1] << 8) | (cp[0] & 0xFF)) & 0xffff;
 				break;
 			case OPC_PUSH:
 				regs[lreg] -= BPW;
 				cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
-				cp[0] = ea >> 8;
-				cp[1] = ea;
+				cp[0] = ea;
+				cp[1] = ea >> 8;
 				break;
 			case OPC_PSHR:
 				/* push regs */
@@ -656,8 +656,8 @@ void run(uint16_t inisp) {
 						regs[lreg] -= BPW;
 						cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
 						lval = regs[i];
-						cp[0] = lval >> 8;
-						cp[1] = lval;
+						cp[0] = lval;
+						cp[1] = lval >> 8;
 					}
 					ea >>= 1;
 				}
@@ -668,7 +668,7 @@ void run(uint16_t inisp) {
 					if (ea & 0x8000) {
 						cp = &image[regs[lreg] & 0xffff]; // get EA of (lreg)+
 						regs[lreg] += BPW;
-						regs[i] = (cp[0] << 8) + (cp[1] & 0xFF);
+						regs[i] = (cp[1] << 8) | (cp[0] & 0xFF);
 					}
 					ea <<= 1;
 				}

@@ -209,7 +209,7 @@ int	undef;			// Undef   -u specified
 int	verbose;		// Verbose -v specified
 
 char	*line;			// Pointer to current input buffer
-char	datbuf[512];		// storage buffer for sto_data
+char	datbuf[256];		// storage buffer (dynamic size is stored in 8 bits)
 char	inpfn[PATHMAX];		// input filename
 char	lisfn[PATHMAX];		// listing filename
 char	outfn[PATHMAX];		// output filename
@@ -226,7 +226,6 @@ extern char *stdout;
 //int strcpy(char *dst, char *src);
 //int strlen(char *str);
 //int strncpy(char *dst, int n, char *src);
-//int toupper(int ch);
 
 /*
  *
@@ -417,8 +416,9 @@ read_word() {
 	if (fread(arr, 1, 2, inphdl) != 2)
 		fatal("missing .END (use -v to discover where)\n");
 
-	// return signed
-	w = arr[0] << 8 | (arr[1] & 0xff);
+	// get word
+	w = (arr[1] << 8) | (arr[0] & 0xff);
+	// sign extend
 	w |= -(w & (1 << SBIT));
 	return w;
 }
@@ -436,8 +436,8 @@ write_byte(char byte) {
 write_word(int word) {
 	char arr[2];
 
-	arr[0] = word >> 8;
-	arr[1] = word;
+	arr[0] = word;
+	arr[1] = word >> 8;
 
 	fwrite(arr, 1, 2, outhdl);
 }
@@ -1270,8 +1270,8 @@ process() {
 	datbuf[0] = 0x50;  // opcode for "jz.a"
 	dohash("___START", &hash);
 	datbuf[1] = 0; // jz.a r0,imm(r0)
-	datbuf[2] = name[hash * NLAST + NVALUE] >> 8; // hi
-	datbuf[3] = name[hash * NLAST + NVALUE]; // lo
+	datbuf[2] = name[hash * NLAST + NVALUE]; // lo
+	datbuf[3] = name[hash * NLAST + NVALUE] >> 8; // hi
 	fwrite(datbuf, 1, 4, outhdl);
 
 	// process pass 2
