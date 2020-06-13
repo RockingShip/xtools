@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-13 00:22:33 FIX: Stack adjustments for SP_AUTO should be in early `primary()`.
+                    Were situations where `loadlval()` wrongly optimised because of late adjustment.
 2020-06-13 00:18:16 FIX: Sign extend parameters of `calc()`.
                     And correct parameter order for `xasm` (oops).
 2020-06-12 15:27:22 Drop support for variadic functions.

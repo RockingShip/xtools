@@ -694,10 +694,6 @@ gencode_lval(int opc, int lreg, int *lval) {
 	if (lval[LTYPE] == BRANCH)
 		loadlval(lval, -1);
 
-	// apply any stack adjustments for SP_AUTO
-	if (rreg == REG_SP)
-		ofs = ofs - csp;
-
 	if (lval[LTYPE] == ADDRESS || lval[LTYPE] == FUNCTION)
 		size = 0;
 	else if (isWORD(lval))
@@ -791,7 +787,7 @@ freelval(register int lval[]) {
 loadlval(register int lval[], register int reg) {
 	register int srcreg;
 
-	// Sign extend to fix being called with negative constant when copiled with "-Dint=long"
+	// Sign extend to fix being called with negative constant when compiled with "-Dint=long"
 	reg |= -(reg & (1 << SBIT));
 
 	if (lval[LTYPE] == ADDRESS) {
@@ -1023,6 +1019,9 @@ primary(register int lval[]) {
 			lval[LNAME] = sym[INAME];
 			lval[LVALUE] = sym[IVALUE];
 			lval[LREG] = sym[IREG];
+
+			if (lval[LREG] == REG_SP)
+				lval[LVALUE] = lval[LVALUE] - csp;
 
 			return 1;
 		}
