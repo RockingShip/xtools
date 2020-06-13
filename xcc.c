@@ -1840,7 +1840,11 @@ expr_ternary(register int lval[]) {
 	if (lval[LTRUE])
 		genlabel(lval[LTRUE]);
 	expression(lval);
-	loadlval(lval, reg = allocreg()); // Needed to assign a dest reg
+	loadlval(lval, 0);
+
+	// save and release final register
+	reg = lval[LREG];
+	freelval(lval);
 
 	needtoken(":");
 	// jump to end
@@ -1851,8 +1855,26 @@ expr_ternary(register int lval[]) {
 	genlabel(lfalse);
 	if (!expr_ternary(lval))
 		exprerr();
-	else
-		loadlval(lval, reg); // Load into same register as 'when-true' path
+
+	// get outcome into same register as 'when-true' path
+	if (!isRegister(lval) || lval[LREG] != reg) {
+		// release `lval[]`, final register should be free
+		freelval(lval);
+
+		// reg should be free, allocate it
+		if (reguse & (1 << reg))
+			fatal("ternary register not free");
+		reguse |= 1 << reg;
+
+		// load into final register
+		gencode_lval(TOK_LD, reg, lval);
+
+		// Modify lval
+		lval[LTYPE] = ADDRESS;
+		lval[LNAME] = 0;
+		lval[LVALUE] = 0;
+		lval[LREG] = reg;
+	}
 
 	// common end label
 	genlabel(lend);

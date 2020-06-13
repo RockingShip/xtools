@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-13 19:38:33 Optimize `expr_ternary()` to better share final register.
+                    Release final register after 'when-true' path so that 'when-false' path can reuse it.
 2020-06-13 00:45:10 Optimize `expr_addsub()` for constant rvalue.
                     ADDRESS+constant does not require code.
 2020-06-13 00:22:33 FIX: Stack adjustments for SP_AUTO should be in early `primary()`.
