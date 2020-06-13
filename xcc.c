@@ -1045,8 +1045,12 @@ primary(register int lval[]) {
 /*
  * Process a constant evaluation
  */
-calc(register int left, int oper, int right) {
-	switch (oper) {
+calc(register int left, int opc, int right) {
+	// sign extend
+	left |= -(left & (1 << SBIT));
+	right |= -(right & (1 << SBIT));
+
+	switch (opc) {
 	case TOK_MUL: return (left * right);
 	case TOK_DIV: return (left / right);
 	case TOK_MOD: return (left % right);

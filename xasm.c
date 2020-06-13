@@ -1040,8 +1040,12 @@ primary(register int lval[]) {
 /*
  * Process a constant evaluation
  */
-calc(register int left, register int right, int oper) {
-	switch (oper) {
+calc(register int left, int opc, register int right) {
+	// sign extend
+	left |= -(left & (1 << SBIT));
+	right |= -(right & (1 << SBIT));
+
+	switch (opc) {
 	case REL_OR :  return (left  |  right);
 	case REL_XOR:  return (left  ^  right);
 	case REL_AND:  return (left  &  right);
