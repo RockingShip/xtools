@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-14 22:57:31 Redesigned `constexpr()`.
+                    Preperation for numeric instructions and evaluation stack.
+                    With an evaluation stack, `lval[]` is not sufficient to fold constant expressions.
+                    Drop `calc()`.
+                    The 12 extra functions and removals generate 355 extra lines of assembler.
 2020-06-14 00:46:31 Stack grows in incrementing `"(*sp++)"` direction (`untangle` migration).
                     Arguments are in same stack order as parameters (key feature).
                     Added linker symbol `___END`.

@@ -1032,42 +1032,15 @@ primary(register int lval[]) {
 }
 
 /*
- * Process a constant evaluation
- */
-calc(register int left, int opc, int right) {
-	// sign extend
-	left |= -(left & (1 << SBIT));
-	right |= -(right & (1 << SBIT));
-
-	switch (opc) {
-	case TOK_MUL: return (left * right);
-	case TOK_DIV: return (left / right);
-	case TOK_MOD: return (left % right);
-	case TOK_ADD: return (left + right);
-	case TOK_SUB: return (left - right);
-	case TOK_LSL: return (left << right);
-	case TOK_LSR: return (left >> right);
-	case TOK_AND: return (left & right);
-	case TOK_XOR: return (left ^ right);
-	case TOK_OR : return (left | right);
-	default: return 0;
-	}
-}
-
-/*
  * Shared code generation used within expressions
  */
 gencode_expr(int tok, register int lval[], register int rval[]) {
 	// Generate code
-	if (isConstant(lval) && isConstant(rval)) {
-		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
-	} else {
-		loadlval(lval, 0);
+	loadlval(lval, 0);
 
-		// Perform operation and release rval
-		gencode_lval(tok, lval[LREG], rval);
-		freelval(rval);
-	}
+	// Perform operation and release rval
+	gencode_lval(tok, lval[LREG], rval);
+	freelval(rval);
 }
 
 /*
@@ -1377,9 +1350,6 @@ expr_muldiv(int lval[]) {
 
 		if (tok != TOK_MUL) {
 			gencode_expr(tok, lval, rval);
-		} else if (isConstant(lval) && isConstant(rval)) {
-			// constant
-			lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
 		} else if ((isConstant(lval) && lval[LVALUE] == 0) || (isConstant(rval) && rval[LVALUE] == 0)) {
 			// zero
 			freelval(lval);
@@ -1452,15 +1422,11 @@ expr_addsub(int lval[]) {
 		}
 
 		// Generate code
-		if (lval[LTYPE] == ADDRESS && isConstant(rval)) {
-			lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
-		} else {
-			loadlval(lval, 0);
+		loadlval(lval, 0);
 
-			// Perform operation and release rval
-			gencode_lval(tok, lval[LREG], rval);
-			freelval(rval);
-		}
+		// Perform operation and release rval
+		gencode_lval(tok, lval[LREG], rval);
+		freelval(rval);
 	}
 }
 
@@ -1572,22 +1538,19 @@ expr_equ(int lval[]) {
 	}
 
 	// Generate code
-	if (isConstant(lval) && isConstant(rval)) {
-		lval[LVALUE] = calc(lval[LVALUE], tok, rval[LVALUE]);
-	} else {
-		loadlval(lval, 0);
+	loadlval(lval, 0);
 
-		// Compare and release values
-		gencode_lval(TOK_XOR, lval[LREG], rval);
-		freelval(rval);
+	// Compare and release values
+	gencode_lval(TOK_XOR, lval[LREG], rval);
+	freelval(rval);
 
-		// Change lval to "BRANCH"
-		lval[LTYPE] = BRANCH;
-		lval[LVALUE] = tok;
-		// keep `LREG`
-		lval[LTRUE] = 0;
-		lval[LFALSE] = 0;
-	}
+	// Change lval to "BRANCH"
+	lval[LTYPE] = BRANCH;
+	lval[LVALUE] = tok;
+	// keep `LREG`
+	lval[LTRUE] = 0;
+	lval[LFALSE] = 0;
+
 	return 1;
 }
 
@@ -1969,20 +1932,205 @@ expression(register int lval[]) {
 }
 
 /*
+ *
+ */
+const_unary() {
+
+	if (match("~"))
+		return ~const_unary();
+	else if (match("!"))
+		return !const_unary();
+	else if (match("-"))
+		return -const_unary();
+	else if (match("+"))
+		return +const_unary();
+	else if (match("(")) {
+		int val;
+		val = constexpr();
+		needtoken(")");
+		return val;
+	} else {
+		int lval[LLAST];
+		primary(lval);
+		if (isConstant(lval))
+			return lval[LVALUE];
+
+		expected("constant expression");
+		return 0;
+	}
+}
+
+/*
+ *
+ */
+const_muldiv() {
+	register int val;
+	val = const_unary();
+
+	while (1) {
+		if (omatch("*"))
+			val *= const_unary();
+		else if (omatch("/"))
+			val /= const_unary();
+		else if (omatch("%"))
+			val %= const_unary();
+		else
+			return val;
+	}
+}
+
+/*
+ *
+ */
+const_addsub() {
+	register int val;
+	val = const_muldiv();
+
+	while (1) {
+		if (omatch("+"))
+			val += const_muldiv();
+		else if (omatch("-"))
+			val -= const_muldiv();
+		else
+			return val;
+	}
+}
+
+/*
+ *
+ */
+const_shift() {
+	register int val;
+	val = const_addsub();
+
+	while (1) {
+		if (omatch("<<"))
+			val <<= const_addsub();
+		else if (omatch(">>"))
+			val >>= const_addsub();
+		else
+			return val;
+	}
+}
+
+/*
+ *
+ */
+const_rel() {
+	register int val;
+	val = const_shift(val);
+
+	if (omatch("<="))
+		return val <= const_shift();
+	else if (omatch(">="))
+		return val >= const_shift();
+	else if (omatch("<"))
+		return val < const_shift();
+	else if (omatch(">"))
+		return val > const_shift();
+	else
+		return val;
+}
+
+/*
+ *
+ */
+const_equ() {
+	register int val;
+	val = const_rel();
+
+	if (omatch("=="))
+		return val == const_rel();
+	else if (omatch("!="))
+		return val != const_rel();
+	else
+		return val;
+}
+
+/*
+ *
+ */
+const_and() {
+	register int val;
+	val = const_equ();
+
+	while (omatch("&"))
+		val &= const_equ();
+	return val;
+}
+
+/*
+ *
+ */
+const_xor() {
+	register int val;
+	val = const_and();
+
+	while (omatch("^"))
+		val ^= const_and();
+	return val;
+}
+
+/*
+ *
+ */
+const_or() {
+	register int val;
+	val = const_xor(val);
+
+	while (omatch("|"))
+		val |= const_xor();
+	return val;
+}
+
+/*
+ *
+ */
+const_land() {
+	register int val;
+	val = const_or();
+
+	while (omatch("&&"))
+		val = val && const_or();
+	return val;
+}
+
+/*
+ *
+ */
+const_lor() {
+	register int val;
+	val = const_land();
+
+	while (omatch("||"))
+		val = val || const_land();
+	return val;
+}
+
+/*
+ *
+ */
+const_ternary() {
+	register int val;
+	val = const_lor(val);
+
+	if (match("?")) {
+		int tval, fval;
+
+		tval = constexpr();
+		needtoken(":");
+		fval = const_ternary();
+		val = val ? tval : fval;
+	}
+
+	return val;
+}
+
+/*
  * Load a constant expression
  */
-constexpr(register int *val) {
-	int lval[LLAST];
-
-	if (!expr_ternary(lval))
-		return 0;
-	if (isConstant(lval)) {
-		*val = lval[LVALUE];
-		return 1;
-	}
-	expected("constant expression");
-	freelval(lval);
-	return 0;
+constexpr() {
+	return const_ternary();
 }
 
 /*
@@ -2294,8 +2442,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 	} else if (amatch("case")) {
 		if (!swbase)
 			error("not in switch");
-		if (!constexpr(&lbl3))
-			expected("case value");
+		lbl3 = constexpr();
 		needtoken(":");
 		for (i = swbase + 1; i < swinx; ++i)
 			if (sw[i * SLAST + SCASE] == lbl3)
@@ -2451,10 +2598,8 @@ declenum(int scope) {
 		sym[IVALUE] = 0;
 		sym[IREG] = 0;
 
-		if (match("=")) {
-			if (!constexpr(&seqnr))
-				expected("constant expected");
-		}
+		if (match("="))
+			seqnr = constexpr();
 
 		sym[IVALUE] = seqnr++;
 		dump_ident(sym);
@@ -2515,13 +2660,16 @@ declvar(int scope, register int clas) {
 			++ptr;
 
 			// get number of elements
-			if (!constexpr(&cnt))
+			if (omatch("]")) {
 				cnt = 0;
-			else if (cnt < 0)
-				warning("warning: negative size");
+			} else {
+				cnt = constexpr();
+				if (cnt < 0)
+					warning("warning: negative size");
 
-			// force single dimension
-			needtoken("]");
+				// force single dimension
+				needtoken("]");
+			}
 		}
 
 		// add symbol to symboltable
@@ -2646,12 +2794,12 @@ declarg(int scope, register int clas, register int argnr) {
 			ptr = 1; // address of array (passed as argument) is pushed on stack
 
 			// get number of elements
-			int cnt;
-			if (constexpr(&cnt))
+			if (!omatch("]")) {
 				error("arraysize not allowed");
-
-			// force single dimension
-			needtoken("]");
+				int cnt;
+				cnt = constexpr();
+				needtoken("]");
+			}
 		}
 
 		// add symbol to symboltable
