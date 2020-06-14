@@ -98,7 +98,7 @@ enum {
 FILE     *handles[FILEMAX];     /* handle/FILE mapping */
 uint8_t  image[0x10000];        /* actual image */
 char     **inpargv;             /* argv[] for emulated */
-uint16_t lowestSP;              /* Lowest encountered SP */
+uint16_t highestSP;              /* Lowest encountered SP */
 int      monitor;               /* Monitor -m specified */
 char     *opc_name[256];        /* texual descriptors of opcodes */
 int16_t  regs[REGMAX];              /* registers */
@@ -246,7 +246,7 @@ void startup(int argc, char **argv) {
 
 void shutdown(int code) {
 	if (verbose)
-		printf("lowestSP=%04x\n", lowestSP);
+		printf("highestSP=%04x\n", highestSP);
 	exit(code);
 }
 
@@ -263,39 +263,39 @@ uint16_t pushArgs(uint16_t sp, char *argv[]) {
 	len = (len + 1) & ~1;
 
 	// string base
-	sp = (sp - len) & 0xffff;
 	strbase = sp;
+	sp = (sp + len) & 0xffff;
 	// argv base
-	sp = (sp - (argc + 1) * BPW) & 0xffff;
 	argvbase = sp;
+	sp = (sp + (argc + 1) * BPW) & 0xffff;
 
 	// copy strings
 	for (i = 0; i < argc; i++) {
-		image[argvbase++] = strbase;
-		image[argvbase++] = strbase >> 8;
+		image[argvbase + i * BPW + 0] = strbase;
+		image[argvbase + i * BPW + 1] = strbase >> 8;
 		for (arg = argv[i]; *arg; arg++)
 			image[strbase++] = *arg;
 		image[strbase++] = 0;
 	}
 
 	// terminator NULL
-	image[argvbase++] = 0;
-	image[argvbase++] = 0;
+	image[argvbase + argc * BPW + 0] = 0;
+	image[argvbase + argc * BPW + 1] = 0;
 
 	// push argc
-	sp -= BPW;
 	image[sp + 0] = argc;
 	image[sp + 1] = argc >> 8;
+	sp += BPW;
 
 	// push argv
-	sp -= BPW;
-	image[sp + 0] = (sp + 4);
-	image[sp + 1] = (sp + 4) >> 8;
+	image[sp + 0] = argvbase;
+	image[sp + 1] = argvbase >> 8;
+	sp += BPW;
 
 	// push return address
-	sp -= BPW;
-	image[sp + 0] = 0;
-	image[sp + 1] = 0;
+	image[sp + 0] = 0xde;
+	image[sp + 1] = 0xad;
+	sp += BPW;
 
 	return sp;
 }
@@ -306,20 +306,17 @@ uint16_t pushArgs(uint16_t sp, char *argv[]) {
 /*                                                                    */
 /**********************************************************************/
 
-void disp_reg(uint16_t pc) {
-	printf("pc:%04x r0:%04x r1:%04x r2:%04x r3:%04x r4:%04x r5:%04x r6:%04x r7:%04x r8:%04x r9:%04x r10:%04x r11:%04x r12:%04x r13:%04x r14:%04x r15:%04x\n",
-	       pc,
+void disp_regopc(uint16_t pc) {
+	printf("r0:%04x r1:%04x r2:%04x r3:%04x r4:%04x r5:%04x r6:%04x r7:%04x r8:%04x r9:%04x r10:%04x r11:%04x r12:%04x r13:%04x r14:%04x r15:%04x\n",
 	       regs[0] & 0xffff, regs[1] & 0xffff, regs[2] & 0xffff, regs[3] & 0xffff,
 	       regs[4] & 0xffff, regs[5] & 0xffff, regs[6] & 0xffff, regs[7] & 0xffff,
 	       regs[8] & 0xffff, regs[9] & 0xffff, regs[10] & 0xffff, regs[11] & 0xffff,
 	       regs[12] & 0xffff, regs[13] & 0xffff, regs[14] & 0xffff, regs[15] & 0xffff);
-}
 
-void disp_opc(uint16_t pc) {
-		printf("%s r%d,%02x%02x", opc_name[image[pc + 0]], image[pc + 1] & 0xf, image[pc + 3], image[pc + 2]);
-		if ((image[pc + 1] >> 4) & 0xf)
-			printf("(r%d)", (image[pc + 1] >> 4) & 0xf);
-		putchar ('\n');
+	printf("%04x %s r%d,%02x%02x", pc, opc_name[image[pc + 0]], image[pc + 1] & 0xf, image[pc + 3], image[pc + 2]);
+	if ((image[pc + 1] >> 4) & 0xf)
+		printf("(r%d)", (image[pc + 1] >> 4) & 0xf);
+	putchar ('\n');
 }
 
 void disp_dump(uint16_t pc) {
@@ -327,7 +324,7 @@ void disp_dump(uint16_t pc) {
 	uint8_t *cp;
 	int i, j;
 
-	disp_reg(pc);
+	disp_regopc(pc);
 	printf("\nStackdump:\n");
 	loc = regs[REG_SP];
 	for (i = 0; i < 4; i++, loc += 0x10) {
@@ -488,7 +485,7 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 		}
 		default:
 			printf("unimplemented OSINFO call\n");
-			disp_opc(pc);
+			disp_regopc(pc);
 			disp_dump(pc);
 			shutdown(ctrl[0]);
 			break;
@@ -509,7 +506,7 @@ void do_svc(uint16_t pc, int lreg, int16_t id) {
 		break;
 	default:
 		printf("unimplemented SVC call\n");
-		disp_opc(pc);
+		disp_regopc(pc);
 		disp_dump(pc);
 		shutdown(1);
 	}
@@ -533,14 +530,12 @@ void run(uint16_t inisp) {
 		regs[i] = 0;
 	regs[REG_SP] = inisp;
 	while (1) {
-		if (monitor) {
-			disp_reg(pc);
-			disp_opc(pc);
-		}
-		if (!lowestSP || (regs[REG_SP] & 0xffff) < lowestSP) {
-			lowestSP = regs[REG_SP];
+		if (monitor)
+			disp_regopc(pc);
+		if (!highestSP || (regs[REG_SP] & 0xffff) > highestSP) {
+			highestSP = regs[REG_SP];
 			if (monitor)
-				printf("lowestSP=%04x\n", lowestSP);
+				printf("highestSP=%04x\n", highestSP);
 		}
 
 		// RISC instructions
@@ -631,33 +626,33 @@ void run(uint16_t inisp) {
 				break;
 			case OPC_JSB:
 				/* save old PC */
-				regs[lreg] -= BPW;
 				cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
 				cp[0] = pc;
 				cp[1] = pc >> 8;
+				regs[lreg] += BPW;
 				/* update PC */
 				pc = ea & 0xffff;
 				break;
 			case OPC_RSB:
+				regs[lreg] -= BPW;
 				cp = &image[regs[lreg] & 0xffff]; // get EA of (lreg)+
-				regs[lreg] += BPW;
 				pc = ((cp[1] << 8) | (cp[0] & 0xFF)) & 0xffff;
 				break;
 			case OPC_PUSH:
-				regs[lreg] -= BPW;
 				cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
 				cp[0] = ea;
 				cp[1] = ea >> 8;
+				regs[lreg] += BPW;
 				break;
 			case OPC_PSHR:
 				/* push regs */
 				for (i = 0; i < REGMAX; i++) {
 					if (ea & 0x0001) {
-						regs[lreg] -= BPW;
 						cp = &image[regs[lreg] & 0xffff]; // get EA of -(lreg)
 						lval = regs[i];
 						cp[0] = lval;
 						cp[1] = lval >> 8;
+						regs[lreg] += BPW;
 					}
 					ea >>= 1;
 				}
@@ -666,8 +661,8 @@ void run(uint16_t inisp) {
 				/* push regs */
 				for (i = REGMAX - 1; i >= 0; i--) {
 					if (ea & 0x8000) {
+						regs[lreg] -= BPW;
 						cp = &image[regs[lreg] & 0xffff]; // get EA of (lreg)+
-						regs[lreg] += BPW;
 						regs[i] = (cp[1] << 8) | (cp[0] & 0xFF);
 					}
 					ea <<= 1;
@@ -676,10 +671,10 @@ void run(uint16_t inisp) {
 			default:
 				pc -= 3;
 				printf("encountered unimplemented opcode\n");
-				disp_opc(pc - 1);
+				disp_regopc(pc - 1);
 				disp_dump(pc - 1);
 				if (verbose)
-					printf("lowestSP=%04x\n", lowestSP);
+					printf("highestSP=%04x\n", highestSP);
 				shutdown(1);
 			}
 		}
@@ -715,6 +710,11 @@ int main(int argc, char **argv) {
 	}
 	int r = read(fd, image, 0x10000);
 	close(fd);
+
+	/*
+	 * Extract inisp (from first instruction)
+	 */
+	inisp = ((image[9] << 8) | (image[8] & 0xFF)) & 0xffff;
 
 	/*
 	 * Push argc/argv on stack

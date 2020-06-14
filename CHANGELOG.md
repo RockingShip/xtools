@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
-2020-06-13 20:56:11 Switched from MSB to LSB.
+2020-06-14 00:46:31 Stack grows in incrementing `"(*sp++)"` direction (`untangle` migration).
+                    Arguments are in same stack order as parameters (key feature).
+                    Added linker symbol `___END`.
+                    Stack starts at `___END`.
+                    Image has header, starting with `jz.a r0,entry(r0)`.
+                    Update `svc` calls in lib/main.c`.
+                    Dropped linker `stksiz`.
+2020-06-13 20:56:11 Switched from MSB to LSB (`untangle` migration).
                     Vectors start serially from bit 0 in increasing/growing direction.
                     Also, byte arguments start at same offset as words.
 2020-06-13 19:38:33 Optimize `expr_ternary()` to better share final register.

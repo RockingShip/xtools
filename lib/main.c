@@ -3,114 +3,126 @@ int stdout;
 int stderr;
 
 osprint(char *str) {
-	asm("ld.a r1,2(r14)"); // load `str` into r1
-	asm("svc.a r1,31");
+	int ctrl[1];
+	register int *r2;
+
+	r2 = ctrl;
+	r2[0] = str;
+
+	asm("svc.a r2,31");
+	return r2;
 }
 
 fread(char *buf, int siz, int cnt, int hdl) {
 	int ctrl[4];
+	register int *r2;
 
-	ctrl[0] = buf;
-	ctrl[1] = siz;
-	ctrl[2] = cnt;
-	ctrl[3] = hdl;
+	r2 = ctrl;
+	r2[0] = buf;
+	r2[1] = siz;
+	r2[2] = cnt;
+	r2[3] = hdl;
 
-	asm("ld.a r1,0(r15)"); // load address of `ctrl` into r1
-	return asm("svc.a r1,40");
+	asm("svc.a r2,40");
+	return r2;
 }
 
 fwrite(int buf, int siz, int cnt, int hdl) {
 	int ctrl[4];
+	register int *r2;
 
-	ctrl[0] = buf;
-	ctrl[1] = siz;
-	ctrl[2] = cnt;
-	ctrl[3] = hdl;
+	r2 = ctrl;
+	r2[0] = buf;
+	r2[1] = siz;
+	r2[2] = cnt;
+	r2[3] = hdl;
 
-	asm("ld.a r1,0(r15)");
-	return asm("svc.a r1,41");
+	asm("svc.a r2,41");
+	return r2;
 }
 
 fopen(char *name, char *mode) {
 	int ctrl[2];
+	register int *r2;
 
-	ctrl[0] = name;
-	ctrl[1] = mode;
+	r2 = ctrl;
+	r2[0] = name;
+	r2[1] = mode;
 
-	asm("ld.a r1,0(r15)");
-	return asm("svc.a r1,42");
+	asm("svc.a r2,42");
+	return r2;
 }
 
 fclose(int hdl) {
 	int ctrl[1];
+	register int *r2;
 
-	ctrl[0] = hdl;
+	r2 = ctrl;
+	r2[0] = hdl;
 
-	asm("ld.a r1,0(r15)");
-	return asm("svc.a r1,43");
+	asm("svc.a r2,43");
+	return r2;
 }
 
 fseek(int hdl, int pos, int whence) {
 	int ctrl[3];
+	register int *r2;
 
-	ctrl[0] = hdl;
-	ctrl[1] = pos;
-	ctrl[2] = whence;
+	r2 = ctrl;
+	r2[0] = hdl;
+	r2[1] = pos;
+	r2[2] = whence;
 
-	asm("ld.a r1,0(r15)");
-	return asm("svc.a r1,44");
+	asm("svc.a r2,44");
+	return r2;
 }
 
 ftell(int hdl) {
 	int ctrl[1];
+	register int *r2;
 
-	ctrl[0] = hdl;
+	r2 = ctrl;
+	r2[0] = hdl;
 
-	asm("ld.a r1,0(r15)");
-	return asm("svc.a r1,47");
+	asm("svc.a r2,47");
+	return r2;
 }
 
 unlink(char *name) {
 	int ctrl[1];
+	register int *r2;
 
-	ctrl[0] = name;
+	r2 = ctrl;
+	r2[0] = name;
 
-	asm("ld.a r1,0(r15)");
-	return asm("svc.a r1,45");
+	asm("svc.a r2,45");
+	return r2;
 }
 
 rename(char *old, char *new) {
 	int ctrl[2];
+	register int *r2;
 
-	ctrl[0] = old;
-	ctrl[1] = new;
+	r2 = ctrl;
+	r2[0] = old;
+	r2[1] = new;
 
-	asm("ld.a r1,0(r15)");
-	return asm("svc.a r1,46");
+	asm("svc.a r2,46");
+	return r2;
 }
 
 exit(int code) {
 	int ctrl[1];
+	register int *r2;
 
-	ctrl[0] = code;
+	r2 = ctrl;
+	r2[0] = code;
 
-	asm("ld.a r1,0(r15)");
-	asm("svc.a r1,99");
+	asm("svc.a r2,99");
 }
 
 __START(int argc, int *argv)
 {
-	/* Load the special purpose registers */
-	/* r15 REG_SP  initial sp */
-	/* r14 REG_AP  frame pointer*/
-	/* r13 REG_BPW constant BPW */
-	/* r12 REG_1   constant 1 */
-	/* r0  REG_0   constant 0 */
-
-	asm("ld.a r13,2");
-	asm("ld.a r12,1");
-	asm("ld.a r0,0");
-
 	stdin = 0;
 	stdout = 1;
 	stderr = 2;

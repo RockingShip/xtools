@@ -674,16 +674,6 @@ gencode_L(int opc, int reg, int lbl) {
 	gencode(opc, 0, reg, -lbl, 0, 0);
 }
 
-gencode_ADJSP(int imm) {
-	// sign extend
-	imm |= -(imm & (1 << SBIT));
-
-	if (imm > 0)
-		gencode(TOK_ADD, 0, REG_SP, 0, imm, 0);
-	else if (imm < 0)
-		gencode(TOK_SUB, 0, REG_SP, 0, -imm, 0);
-}
-
 gencode_lval(int opc, int lreg, int *lval) {
 	int name, ofs, rreg, size;
 	name = lval[LNAME];
@@ -1215,7 +1205,7 @@ expr_postfix(register int lval[]) {
 			gencode_lval(TOK_PUSH, REG_SP, rval);
 			freelval(rval);
 			// increment ARGC
-			csp -= BPW;
+			csp += BPW;
 			argc += BPW;
 
 			if (!match(","))
@@ -1229,7 +1219,7 @@ expr_postfix(register int lval[]) {
 
 		// Pop args
 		if (argc)
-			gencode(TOK_ADD, 0, REG_SP, 0, argc, 0);
+			gencode(TOK_SUB, 0, REG_SP, 0, argc, 0);
 
 		csp = sav_csp;
 
@@ -2100,7 +2090,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			} else {
 				// allocate locals
 				if (csp != last_csp) {
-					gencode_ADJSP(csp - last_csp);
+					gencode(TOK_ADD, 0, REG_SP, 0, csp - last_csp, 0);
 					last_csp = csp;
 				}
 				statement(swbase, returnlbl, breaklbl, contlbl, breaksp, contsp);
@@ -2108,7 +2098,7 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 		}
 		// unwind stack
 		if (csp != sav_csp) {
-			gencode_ADJSP(sav_csp - csp);
+			gencode(TOK_SUB, 0, REG_SP, 0, csp - sav_csp, 0);
 			csp = sav_csp;
 		}
 		// free local registers
@@ -2334,21 +2324,24 @@ statement(int swbase, int returnlbl, int breaklbl, int contlbl, int breaksp, int
 			loadlval(lval, REG_RETURN);
 			semicolon();
 		}
+		// release used stack
 		if (csp != 0)
-			gencode_ADJSP(- csp);
+			gencode(TOK_SUB, 0, REG_SP, 0, csp, 0);
 		gencode_L(TOK_JZ, 0, returnlbl);
 	} else if (amatch("break")) {
 		if (!breaklbl)
 			error("not in block");
+		// release used stack for this block
 		if (csp != breaksp)
-			gencode_ADJSP(breaksp - csp);
+			gencode(TOK_SUB, 0, REG_SP, 0, csp - breaksp, 0);
 		gencode_L(TOK_JZ, 0, breaklbl);
 		semicolon();
 	} else if (amatch("continue")) {
 		if (!contlbl)
 			error("not in block");
+		// release used stack for this block
 		if (csp != contsp)
-			gencode_ADJSP(contsp - csp);
+			gencode(TOK_SUB, 0, REG_SP, 0, csp - contsp, 0);
 		gencode_L(TOK_JZ, 0, contlbl);
 		semicolon();
 	} else if (!ch) {
@@ -2553,21 +2546,22 @@ declvar(int scope, register int clas) {
 			reglock |= (1 << sym[IREG]);
 		} else if (sym[ICLASS] == SP_AUTO) {
 
-			if (type == ADDRESS) {
-				if (ptr <= 1 && size == 1)
-					csp -= cnt * 1;
-				else
-					csp -= cnt * BPW;
-			} else {
-				if (!ptr && size == 1)
-					csp -= cnt * 1;
-				else
-					csp -= cnt * BPW;
-			}
-
 			sym[INAME] = 0;
 			sym[IVALUE] = csp;
 			sym[IREG] = REG_SP;
+
+			if (type == ADDRESS) {
+				if (ptr <= 1 && size == 1)
+					csp += cnt * 1;
+				else
+					csp += cnt * BPW;
+			} else {
+				if (!ptr && size == 1)
+					csp += cnt * 1;
+				else
+					csp += cnt * BPW;
+			}
+
 		} else if (sym[ICLASS] != EXTERNAL) {
 			toseg(UDEFSEG);
 			fputc('_', outhdl);
@@ -2670,7 +2664,7 @@ declarg(int scope, register int clas, register int argnr) {
 		sym[IPTR] = ptr;
 		sym[ISIZE] = size;
 		sym[INAME] = 0;
-		sym[IVALUE] = (-argnr + 1) * BPW;
+		sym[IVALUE] = argnr;
 		sym[IREG] = REG_AP;
 
 		dump_ident(sym);
@@ -2770,8 +2764,8 @@ declfunc(int clas) {
 	for (i = scope + 1; i < symidx; ++i) {
 		sym = &syms[i * ILAST];
 
-		// tweak AP offsets
-		sym[IVALUE] += numarg * BPW - BPW;
+		// tweak AP offsets (
+		sym[IVALUE] = (sym[IVALUE] - numarg - 1) * BPW;
 
 		// generate code for register parameters
 		if (sym[ICLASS] == REGISTER) {

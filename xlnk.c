@@ -204,7 +204,6 @@ int	outhdl;			// handle for .IMG file
 int	pass;			// Pass number
 int	stack[STACKMAX*BPW];	// REL evaluation stack
 int	stackinx;		// Poisition in stack
-int	stksiz;			// Stksiz  -s specified
 int	undef;			// Undef   -u specified
 int	verbose;		// Verbose -v specified
 
@@ -1104,7 +1103,7 @@ doreloc() {
 
 	dohash("___CODEBASE", &hash);
 	name[hash * NLAST + NVALUE] = 0;
-	curpos = 4;  // Reserve space for JMP ___START
+	curpos = 16;  // Reserve space for header
 	curlen = 0;
 
 	// relocate CODE
@@ -1168,10 +1167,8 @@ doreloc() {
 	dohash("___UDEFLEN", &hash);
 	name[hash * NLAST + NVALUE] = curlen;
 
-	// redefine ___STACKLEN
-	dohash("___STACKLEN", &hash);
-	p = &name[hash * NLAST];
-	p[NVALUE] = stksiz;
+	dohash("___END", &hash);
+	name[hash * NLAST + NVALUE] = curpos;
 
 	// relocate all symbols
 	for (i = 0; i < NAMEMAX; ++i) {
@@ -1266,13 +1263,30 @@ process() {
 	if (verbose)
 		fputs("Pass 2\n", stdout);
 
-	// generate prefix "JMP ___START"
-	datbuf[0] = 0x50;  // opcode for "jz.a"
+	// generate "jz.a r0,___START"
 	dohash("___START", &hash);
+	datbuf[0] = 0x50;  // opcode for "jz.a"
 	datbuf[1] = 0; // jz.a r0,imm(r0)
 	datbuf[2] = name[hash * NLAST + NVALUE]; // lo
 	datbuf[3] = name[hash * NLAST + NVALUE] >> 8; // hi
-	fwrite(datbuf, 1, 4, outhdl);
+	// magic number "20200614"
+	datbuf[4] = 0x14;
+	datbuf[5] = 0x06;
+	datbuf[6] = 0x20;
+	datbuf[7] = 0x20;
+	// header fields
+	// ___END/start of stack
+	dohash("___END", &hash);
+	datbuf[8] = name[hash * NLAST + NVALUE]; // lo
+	datbuf[9] = name[hash * NLAST + NVALUE] >> 8; // hi
+	datbuf[10] = 0;
+	datbuf[11] = 0;
+	datbuf[12] = 0;
+	datbuf[13] = 0;
+	datbuf[14] = 0;
+	datbuf[15] = 0;
+
+	fwrite(datbuf, 1, 16, outhdl);
 
 	// process pass 2
 	for (i = 0; i < file2inx; ++i) {
@@ -1323,7 +1337,6 @@ initialize() {
 	int hash;
 
 	undef = verbose = debug = 0;
-	stksiz = 2000;
 	outhdl = lishdl = inphdl = 0;
 	inpfn[0] = outfn[0] = 0;
 	datlen = 0;
@@ -1343,7 +1356,6 @@ initialize() {
 
 	// predefined symbols
 	add_res("___START", UNDEF);
-	add_res("___STACKLEN", ABS);
 	add_res("___CODEBASE", ABS);
 	add_res("___CODELEN", ABS);
 	add_res("___DATABASE", ABS);
@@ -1352,6 +1364,7 @@ initialize() {
 	add_res("___TEXTLEN", ABS);
 	add_res("___UDEFBASE", ABS);
 	add_res("___UDEFLEN", ABS);
+	add_res("___END", ABS);
 }
 
 /*
@@ -1366,7 +1379,6 @@ usage() {
 	fputs("  -l <file>[.<ext>]]\tLibrary\n", stdout);
 	fputs("  -o <file>[.<ext>]]\tImage output\n", stdout);
 	fputs("  -m <file>[.<ext>]]\tMap output\n", stdout);
-	fputs("  -s <stksiz>\t\tStack size\n", stdout);
 	fputs("  -u\t\t\tIgnore undefined\n", stdout);
 	fputs("  -v\t\t\tVerbose\n", stdout);
 	exit(1);
@@ -1464,17 +1476,6 @@ startup(register int *argv) {
 					usage();
 				else
 					fext(outfn, arg, ".img", 0);
-				break;
-			case 's':
-				if (!*arg && *argv)
-					arg = *argv++;
-				if (!*arg || *arg == '-')
-					usage();
-
-				// load value
-				stksiz = 0;
-				while (*arg >= '0' && *arg <= '9')
-					stksiz = stksiz * 10 + *arg++ - '0';
 				break;
 			case 'u':
 				undef = 1;
