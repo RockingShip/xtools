@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2020-06-17 12:46:41 Drop "return 1" in expression stack as "expression" is not optional.
+                    Less admin for code generation for stack based registers.
+                    Strongly reduces flow control.
+                    Only place where that might have been used for is array declarations without size.
 2020-06-14 22:57:31 Redesigned `constexpr()`.
                     Preperation for numeric instructions and evaluation stack.
                     With an evaluation stack, `lval[]` is not sufficient to fold constant expressions.

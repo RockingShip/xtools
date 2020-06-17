@@ -275,10 +275,6 @@ fatal(char *msg) {
 	exit(1);
 }
 
-exprerr() {
-	error("Invalid expression");
-}
-
 illname() {
 	error("illegal symbol name");
 }
@@ -878,27 +874,25 @@ doasm(register int lval[]) {
 /*
  * Get a numerical constant
  */
-number(register int *val) {
-	register int i, minus;
+number() {
+	register int num, minus;
 
-	i = minus = 0;
-	if (!(ctype[ch] & CISDIGIT))
-		return 0;
+	num = minus = 0;
 	if (ch == '0' && (nch == 'x' || nch == 'X'))  {
 		bump(2);
 		while (1) {
 			if (ctype[ch] & CISDIGIT)
-				i = i * 16 + (gch() - '0');
+				num = num * 16 + (gch() - '0');
 			else if (ctype[ch] & CISLOWER)
-				i = i * 16 + (gch() - 'a' + 10);
+				num = num * 16 + (gch() - 'a' + 10);
 			else if (ctype[ch] & CISUPPER)
-				i = i * 16 + (gch() - 'A' + 10);
+				num = num * 16 + (gch() - 'A' + 10);
 			else
 				break;
 		}
 	} else {
 		while (ctype[ch] & CISDIGIT)
-			i = i * 10 + (gch() - '0');
+			num = num * 10 + (gch() - '0');
 	}
 
 	/*
@@ -906,10 +900,9 @@ number(register int *val) {
 	 * 0x8000 becomes 32768 (32-bits) and -32768 (16-bits).
 	 */
 	// sign extend
-	i |= -(i & (1 << SBIT));
+	num |= -(num & (1 << SBIT));
 
-	*val = i;
-	return 1;
+	return num;
 }
 
 /*
@@ -923,11 +916,14 @@ constant(register int lval[]) {
 	lval[LVALUE] = 0;
 	lval[LREG] = 0;
 
-	if (number(&lval[LVALUE]))
-		return 1;
+	// start of number
+	if (ctype[ch] & CISDIGIT) {
+		lval[LVALUE] = number();
+		return;
+	}
 
-	// character
 	if (match("'")) {
+		// start of character
 		register int i;
 
 		i = 0;
@@ -936,43 +932,45 @@ constant(register int lval[]) {
 		gch();
 
 		lval[LVALUE] = i;
-		return 1;
-	}
+	} else if (match("\"")) {
+		// start of string
+		int lbl, prevseg;
+		lbl = ++nxtlabel;
+		prevseg = currseg;
 
-	// start of string
-	if (!match("\""))
-		return 0;
+		toseg(TEXTSEG);
+		genlabel(lbl);
+		fputs("\t.dcb\t\"", outhdl);
 
-	int lbl, prevseg;
-	lbl = ++nxtlabel;
-	prevseg = currseg;
-
-	toseg(TEXTSEG);
-	genlabel(lbl);
-	fputs("\t.dcb\t\"", outhdl);
-
-	while (ch && (ch != '"')) {
-		if (ch == '\\') {
+		while (ch && (ch != '"')) {
+			if (ch == '\\') {
+				fputc(ch, outhdl);
+				gch();
+			}
 			fputc(ch, outhdl);
 			gch();
 		}
-		fputc(ch, outhdl);
-		gch();
+		fputs("\",0\n", outhdl);
+		gch(); // skip terminator
+
+		toseg(prevseg);
+
+		// Convert to array of char
+		lval[LTYPE] = ADDRESS;
+		lval[LPTR] = 1;
+		lval[LSIZE] = 1;
+		lval[LNAME] = -lbl;
+		lval[LVALUE] = 0;
+		lval[LREG] = 0;
+	} else {
+		expected("expression");
+		lval[LTYPE] = ADDRESS;
+		lval[LPTR] = 0;
+		lval[LSIZE] = 0;
+		lval[LNAME] = 0;
+		lval[LVALUE] = 0;
+		lval[LREG] = 0;
 	}
-	fputs("\",0\n", outhdl);
-	gch(); // skip terminator
-
-	toseg(prevseg);
-
-	// Convert to array of char
-	lval[LTYPE] = ADDRESS;
-	lval[LPTR] = 1;
-	lval[LSIZE] = 1;
-	lval[LNAME] = -lbl;
-	lval[LVALUE] = 0;
-	lval[LREG] = 0;
-
-	return 1;
 }
 
 /*
@@ -983,20 +981,23 @@ primary(register int lval[]) {
 	int sname, len;
 
 	if (match("(")) {  // (expression,...)
-		expression(lval);
+		expr_comma(lval);
 		needtoken(")");
-		return 1;
+		return;
 	}
 
 	// test for "asm()"
 	if (amatch("asm")) {
 		doasm(lval);
-		return 1;
+		return;
 	}
 
 	// load identifier
-	if (!(len = dohash(lptr, &sname)))
-		return constant(lval);
+	len = dohash(lptr, &sname);
+	if (!len) {
+		constant(lval);
+		return;
+	}
 	bump(len); // Skip identifier
 
 	// identifier. Scan in reverse order of creation.
@@ -1013,7 +1014,7 @@ primary(register int lval[]) {
 			if (lval[LREG] == REG_SP)
 				lval[LVALUE] = lval[LVALUE] - csp;
 
-			return 1;
+			return;
 		}
 	}
 
@@ -1027,8 +1028,6 @@ primary(register int lval[]) {
 	lval[LNAME] = sname;
 	lval[LVALUE] = 0;
 	lval[LREG] = 0;
-
-	return 1;
 }
 
 /*
@@ -1116,52 +1115,49 @@ expr_postfix(register int lval[]) {
 	int rval[LLAST], sav_csp;
 	register int argc, reg;
 
-	if (!primary(lval))
-		return 0;
+	primary(lval);
+
 	if (match("[")) { // [subscript]
 		if (!lval[LPTR])
 			error("can't subscript");
-		else if (!expression(rval))
-			error("need subscript");
-		else {
-			if (isConstant(rval)) {
-				if (lval[LTYPE] == MEMORY)
-					loadlval(lval, 0); // load if pointer
-				// Subscript is a constant + pointer arithmetic
-				lval[LVALUE] += rval[LVALUE] * lval[LSIZE];
-			} else {
-				// Subscript is a variable/complex-expression
-				if (lval[LTYPE] == MEMORY)
-					loadlval(lval, 0); // load if pointer
+		expression(rval);
+		if (isConstant(rval)) {
+			if (lval[LTYPE] == MEMORY)
+				loadlval(lval, 0); // load if pointer
+			// Subscript is a constant + pointer arithmetic
+			lval[LVALUE] += rval[LVALUE] * lval[LSIZE];
+		} else {
+			// Subscript is a variable/complex-expression
+			if (lval[LTYPE] == MEMORY)
+				loadlval(lval, 0); // load if pointer
 
-				// pointer arithmetic
-				loadlval(rval, 0);
-				if (isINTPTR(lval))
-					gencode(TOK_LSL, 0, rval[LREG], 0, LOGBPW, 0); // size index
+			// pointer arithmetic
+			loadlval(rval, 0);
+			if (isINTPTR(lval))
+				gencode(TOK_LSL, 0, rval[LREG], 0, LOGBPW, 0); // size index
 
-				// merge
-				if (!lval[LREG])
-					lval[LREG] = rval[LREG];
-				else {
-					/*
-					 * @date 2020-05-23 01:14:18
-					 * This is an important location.
-					 * having a second indirect register removes the following code.
-					 * however, a single register is a much simpler implementation.
-					 */
-					if ((1 << lval[LREG]) & reglock) {
-						// register in lval is locked and needs to be made writable
-						// @date 2020-06-10 22:44:40
-						loadlval(lval,0);
-					}
-					gencode_lval(TOK_ADD, lval[LREG], rval);
-					freelval(rval);
+			// merge
+			if (!lval[LREG])
+				lval[LREG] = rval[LREG];
+			else {
+				/*
+				 * @date 2020-05-23 01:14:18
+				 * This is an important location.
+				 * having a second indirect register removes the following code.
+				 * however, a single register is a much simpler implementation.
+				 */
+				if ((1 << lval[LREG]) & reglock) {
+					// register in lval is locked and needs to be made writable
+					// @date 2020-06-10 22:44:40
+					loadlval(lval, 0);
 				}
+				gencode_lval(TOK_ADD, lval[LREG], rval);
+				freelval(rval);
 			}
-			// Update data type
-			lval[LTYPE] = MEMORY;
-			--lval[LPTR]; // deference pointer
 		}
+		// Update data type
+		lval[LTYPE] = MEMORY;
+		--lval[LPTR]; // deference pointer
 		needtoken("]");
 	}
 	if (match("(")) { // function (...)
@@ -1209,8 +1205,6 @@ expr_postfix(register int lval[]) {
 	} else if (match("--")) {
 		poststep(TOK_SUB, lval);
 	}
-
-	return 1;
 }
 
 /*
@@ -1219,22 +1213,13 @@ expr_postfix(register int lval[]) {
 expr_unary(register int lval[]) {
 
 	if (match("++")) {
-		if (!expr_unary(lval)) {
-			exprerr();
-			return 0;
-		}
+		expr_unary(lval);
 		prestep(TOK_ADD, lval);
 	} else if (match("--")) {
-		if (!expr_unary(lval)) {
-			exprerr();
-			return 0;
-		}
+		expr_unary(lval);
 		prestep(TOK_SUB, lval);
 	} else if (match("~")) {
-		if (!expr_unary(lval)) {
-			exprerr();
-			return 0;
-		}
+		expr_unary(lval);
 		if (isConstant(lval))
 			lval[LVALUE] = ~lval[LVALUE];
 		else {
@@ -1247,10 +1232,7 @@ expr_unary(register int lval[]) {
 			lval[LREG] = reg;
 		}
 	} else if (match("!")) {
-		if (!expr_unary(lval)) {
-			exprerr();
-			return 0;
-		}
+		expr_unary(lval);
 		if (isConstant(lval))
 			lval[LVALUE] = !lval[LVALUE];
 		else if (lval[LTYPE] == BRANCH) {
@@ -1271,10 +1253,7 @@ expr_unary(register int lval[]) {
 			lval[LFALSE] = 0;
 		}
 	} else if (match("-")) {
-		if (!expr_unary(lval)) {
-			exprerr();
-			return 0;
-		}
+		expr_unary(lval);
 		if (isConstant(lval))
 			lval[LVALUE] = -lval[LVALUE];
 		else {
@@ -1287,15 +1266,9 @@ expr_unary(register int lval[]) {
 			lval[LREG] = reg;
 		}
 	} else if (match("+")) {
-		if (!expr_unary(lval)) {
-			exprerr();
-			return 0;
-		}
+		expr_unary(lval);
 	} else if (match("*")) {
-		if (!expr_unary(lval)) {
-			exprerr();
-			return 0;
-		}
+		expr_unary(lval);
 		if (!lval[LPTR])
 			error("can't dereference");
 		else {
@@ -1305,10 +1278,7 @@ expr_unary(register int lval[]) {
 			--lval[LPTR]; // deference pointer
 		}
 	} else if (match("&")) {
-		if (!expr_unary(lval)) {
-			exprerr();
-			return 0;
-		}
+		expr_unary(lval);
 		if (lval[LTYPE] != MEMORY)
 			expected("lvalue");
 		else {
@@ -1316,10 +1286,8 @@ expr_unary(register int lval[]) {
 			++lval[LPTR];
 		}
 	} else {
-		if (!expr_postfix(lval))
-			return 0;
+		expr_postfix(lval);
 	}
-	return 1;
 }
 
 /*
@@ -1327,8 +1295,7 @@ expr_unary(register int lval[]) {
  */
 expr_muldiv(int lval[]) {
 	// Load lval
-	if (!expr_unary(lval))
-		return 0;
+	expr_unary(lval);
 
 	while (1) {
 		int tok, rval[LLAST];
@@ -1340,13 +1307,10 @@ expr_muldiv(int lval[]) {
 		else if (omatch("%"))
 			tok = TOK_MOD;
 		else
-			return 1;
+			return;
 
 		// Load rval
-		if (!expr_unary(rval)) {
-			exprerr();
-			return 1;
-		}
+		expr_unary(rval);
 
 		if (tok != TOK_MUL) {
 			gencode_expr(tok, lval, rval);
@@ -1392,8 +1356,7 @@ expr_muldiv(int lval[]) {
  */
 expr_addsub(int lval[]) {
 	// Load lval
-	if (!expr_muldiv(lval))
-		return 0;
+	expr_muldiv(lval);
 
 	while (1) {
 		int tok, rval[LLAST];
@@ -1403,13 +1366,10 @@ expr_addsub(int lval[]) {
 		else if (omatch("-"))
 			tok = TOK_SUB;
 		else
-			return 1;
+			return;
 
 		// Load rval
-		if (!expr_muldiv(rval)) {
-			exprerr();
-			return 1;
-		}
+		expr_muldiv(rval);
 
 		// pointer arithmetic, scale index
 		if (isINTPTR(lval)) {
@@ -1435,8 +1395,7 @@ expr_addsub(int lval[]) {
  */
 expr_shift(int lval[]) {
 	// Load lval
-	if (!expr_addsub(lval))
-		return 0;
+	expr_addsub(lval);
 
 	while (1) {
 		int tok, rval[LLAST];
@@ -1446,13 +1405,10 @@ expr_shift(int lval[]) {
 		else if (omatch(">>"))
 			tok = TOK_LSR;
 		else
-			return 1;
+			return;
 
 		// Load rval
-		if (!expr_addsub(rval)) {
-			exprerr();
-			return 1;
-		}
+		expr_addsub(rval);
 
 		gencode_expr(tok, lval, rval);
 	}
@@ -1465,8 +1421,7 @@ expr_rel(int lval[]) {
 	int tok, cond, rval[LLAST];
 
 	// Load lval
-	if (!expr_shift(lval))
-		return 0;
+	expr_shift(lval);
 
 	if (omatch("<=")) {
 		tok = TOK_SGT;
@@ -1481,13 +1436,10 @@ expr_rel(int lval[]) {
 		tok = TOK_SGT;
 		cond = TOK_JZ;
 	} else
-		return 1;
+		return;
 
 	// Load rval
-	if (!expr_shift(rval)) {
-		exprerr();
-		return 1;
-	}
+	expr_shift(rval);
 
 	// Generate code
 	if (isConstant(lval) && isConstant(rval)) {
@@ -1511,7 +1463,6 @@ expr_rel(int lval[]) {
 		lval[LTRUE] = 0;
 		lval[LFALSE] = 0;
 	}
-	return 1;
 }
 
 /*
@@ -1521,21 +1472,17 @@ expr_equ(int lval[]) {
 	int tok, rval[LLAST];
 
 	// Load lval
-	if (!expr_rel(lval))
-		return 0;
+	expr_rel(lval);
 
 	if (omatch("=="))
 		tok = TOK_JNZ;
 	else if (omatch("!="))
 		tok = TOK_JZ;
 	else
-		return 1;
+		return;
 
 	// Load rval
-	if (!expr_rel(rval)) {
-		exprerr();
-		return 1;
-	}
+	expr_rel(rval);
 
 	// Generate code
 	loadlval(lval, 0);
@@ -1550,8 +1497,6 @@ expr_equ(int lval[]) {
 	// keep `LREG`
 	lval[LTRUE] = 0;
 	lval[LFALSE] = 0;
-
-	return 1;
 }
 
 /*
@@ -1559,25 +1504,17 @@ expr_equ(int lval[]) {
  */
 expr_and(int lval[]) {
 	// Load lval
-	if (!expr_equ(lval))
-		return 0;
+	expr_equ(lval);
 
-	while (1) {
+	while (omatch("&")) {
 		int rval[LLAST];
 
-		if (!omatch("&"))
-			return 1;
-
 		// Load rval
-		if (!expr_equ(rval)) {
-			exprerr();
-			return 1;
-		}
+		expr_equ(rval);
 
 		// Generate code
 		gencode_expr(TOK_AND, lval, rval);
 	}
-
 }
 
 /*
@@ -1585,20 +1522,13 @@ expr_and(int lval[]) {
  */
 expr_xor(int *lval) {
 	// Load lval
-	if (!expr_and(lval))
-		return 0;
+	expr_and(lval);
 
-	while (1) {
+	while (omatch("^")) {
 		int rval[LLAST];
 
-		if (!omatch("^"))
-			return 1;
-
 		// Load rval
-		if (!expr_and(rval)) {
-			exprerr();
-			return 1;
-		}
+		expr_and(rval);
 
 		gencode_expr(TOK_XOR, lval, rval);
 	}
@@ -1609,20 +1539,13 @@ expr_xor(int *lval) {
  */
 expr_or(int *lval) {
 	// Load lval
-	if (!expr_xor(lval))
-		return 0;
+	expr_xor(lval);
 
-	while (1) {
+	while (omatch("|")) {
 		int rval[LLAST];
 
-		if (!omatch("|"))
-			return 1;
-
 		// Load rval
-		if (!expr_xor(rval)) {
-			exprerr();
-			return 1;
-		}
+		expr_xor(rval);
 
 		gencode_expr(TOK_OR, lval, rval);
 	}
@@ -1635,11 +1558,10 @@ expr_land(int lval[]) {
 	int lfalse;
 
 	// Load lval
-	if (!expr_or(lval))
-		return 0;
+	expr_or(lval);
 
 	if (!omatch("&&"))
-		return 1;
+		return;
 
 	// lval must be BRANCH
 	if (lval[LTYPE] != BRANCH) {
@@ -1666,10 +1588,7 @@ expr_land(int lval[]) {
 			genlabel(lval[LTRUE]);
 
 		// Load next lval
-		if (!expr_or(lval)) {
-			exprerr();
-			return 1;
-		}
+		expr_or(lval);
 
 		// lval must be BRANCH
 		if (lval[LTYPE] != BRANCH) {
@@ -1688,7 +1607,7 @@ expr_land(int lval[]) {
 		lval[LFALSE] = lfalse;
 
 		if (!omatch("&&"))
-			return 1;
+			return;
 	}
 }
 
@@ -1699,22 +1618,21 @@ expr_lor(int lval[]) {
 	int ltrue;
 
 	// Load lval
-	if (!expr_land(lval))
-		return 0;
+	expr_land(lval);
 
 	if (!omatch("||"))
-		return 1;
+		return;
 
-	    // lval must be BRANCH
-	    if (lval[LTYPE] != BRANCH) {
-		    loadlval(lval, -1);
-		    // Change lval to "BRANCH"
-		    lval[LTYPE] = BRANCH;
-		    lval[LVALUE] = TOK_JZ;
-		    // keep `LREG`
-		    lval[LTRUE] = 0;
-		    lval[LFALSE] = 0;
-	    }
+	// lval must be BRANCH
+	if (lval[LTYPE] != BRANCH) {
+		loadlval(lval, -1);
+		// Change lval to "BRANCH"
+		lval[LTYPE] = BRANCH;
+		lval[LVALUE] = TOK_JZ;
+		// keep `LREG`
+		lval[LTRUE] = 0;
+		lval[LFALSE] = 0;
+	}
 
 	// adopt LTRUE
 	if (!lval[LTRUE])
@@ -1732,10 +1650,7 @@ expr_lor(int lval[]) {
 			genlabel(lval[LFALSE]);
 
 		// Load next lval
-		if (!expr_land(lval)) {
-			exprerr();
-			return 1;
-		}
+		expr_land(lval);
 
 		// lval must be BRANCH
 		if (lval[LTYPE] != BRANCH) {
@@ -1754,7 +1669,7 @@ expr_lor(int lval[]) {
 		lval[LTRUE] = ltrue;
 
 		if (!omatch("||"))
-			return 1;
+			return;
 	}
 }
 
@@ -1764,10 +1679,10 @@ expr_lor(int lval[]) {
 expr_ternary(register int lval[]) {
 	register int lend, reg;
 
-	if (!expr_lor(lval))
-		return 0;
+	expr_lor(lval);
+
 	if (!match("?"))
-		return 1;
+		return;
 
 	// If not a BRANCH then convert it into one
 	if (lval[LTYPE] != BRANCH) {
@@ -1806,8 +1721,7 @@ expr_ternary(register int lval[]) {
 
 	// when-false expression
 	genlabel(lfalse);
-	if (!expr_ternary(lval))
-		exprerr();
+	expr_ternary(lval);
 
 	// get outcome into same register as 'when-true' path
 	if (!isRegister(lval) || lval[LREG] != reg) {
@@ -1831,8 +1745,6 @@ expr_ternary(register int lval[]) {
 
 	// common end label
 	genlabel(lend);
-
-	return 1;
 }
 
 /*
@@ -1842,8 +1754,7 @@ expr_assign(register int lval[]) {
 	int rval[LLAST];
 	register int opc;
 
-	if (!expr_ternary(lval))
-		return 0;
+	expr_ternary(lval);
 
 	// Test for assignment
 	if (omatch("=")) opc = TOK_LD;
@@ -1858,17 +1769,14 @@ expr_assign(register int lval[]) {
 	else if (match("^=")) opc = TOK_XOR;
 	else if (match("|=")) opc = TOK_OR;
 	else
-		return 1;
+		return;
 
 	// test if lval modifiable
 	if (!isRegister(lval) && lval[LTYPE] != MEMORY)
 		expected("lvalue");
 
 	// Get rval
-	if (!expr_assign(rval)) {
-		exprerr();
-		return 1;
-	}
+	expr_assign(rval);
 
 	// pointer arithmetic, scale index
 	if ((opc == TOK_ADD || opc == TOK_SUB) && isINTPTR(lval)) {
@@ -1906,29 +1814,27 @@ expr_assign(register int lval[]) {
 		lval[LVALUE] = 0;
 		lval[LREG] = reg;
 	}
-
-	return 1;
 }
 
 /*
  * Load a numerical expression separated by comma's
  */
-expression(register int lval[]) {
+expr_comma(register int lval[]) {
 
-	if (!expr_assign(lval)) {
-		expected("expression");
-		return 0;
-	}
+	expr_assign(lval);
 
 	while (match(",")) {
 		freelval(lval);
-		if (!expr_assign(lval)) {
-			expected("expression");
-			return 1;
+		expr_assign(lval);
 		}
 	}
 
-	return 1;
+/*
+ * Load expression
+ */
+expression(register int lval[]) {
+
+	expr_comma(lval);
 }
 
 /*
