@@ -1,9 +1,13 @@
-# XTools
+### Work-In-Progress
 
-X-C-Compiler/Assembler/Linker/Archiver.
+# xtools (remastered)
 
-An experimental toolchain for supporting the [untangle](/RockingShip/untangle) fractal engine.
-It is based on the remastered 1991 school project [xtools-historic](/RockingShip/xtools-historic).
+Minimalistic C-Compiler/Assembler/Linker/Archiver intended for supporting the "untangle" fractal engine.
+
+### Welcome to the Wonderful World of keeping code simple
+
+An experimental toolchain for supporting the [untangle](https://github.com/RockingShip/untangle) fractal engine.
+It is based on the remastered 1991 school project [xtools-historic](https://github.com/RockingShip/xtools-historic).
 
 Features:
  - Classic RISC architecture and absence of condition code register.
@@ -12,7 +16,7 @@ Features:
  - `xcc` has `2931` lines of code which translates to 7669 lines of assembler. (v2.2.0)
 
 Known issues:
- - Pointer arithmetic. The only working variant is "&arr[ofs]"`.
+ - Pointer arithmetic. The only working variant is "&arr\[ofs\]"`.
  - Initializers.
 
 ## About the project
@@ -125,9 +129,9 @@ Revised output:
 
 Syntax: opcode reg,immediate(index)
 
-opcode+0 ea=immediate+regs[index]
-opcode+1 ea=memory.byte[immediate+regs[index]]
-opcode+2 ea=memory.word[immediate+regs[index]]
+opcode+0 ea=immediate+regs\[index\]
+opcode+1 ea=memory.byte\[immediate+regs\[index\]\]
+opcode+2 ea=memory.word\[immediate+regs\[index\]\]
 
 ```
     RISC instructions
@@ -164,19 +168,19 @@ The following opcode block is reserved for flow-control, a concept unknown to un
 
 | OPC  | HEX  | Description
 |:----:|:----:|:----|
-| ST   | 0x4c | mem[ea] = reg (NOTE: `untangle` considers explicit writing to memory flow-control)
+| ST   | 0x4c | mem\[ea\] = reg (NOTE: `untangle` considers explicit writing to memory flow-control)
 | JZ   | 0x50 | pc = (reg == 0) ? ea : pc+4
 | JNZ  | 0x54 | pc = (reg != 0) ? ea : pc+4
-| JSB  | 0x58 | mem[--reg] = pc; pc = ea
-| RSB  | 0x5c | pc = mem[reg++]
+| JSB  | 0x58 | mem\[--reg\] = pc; pc = ea
+| RSB  | 0x5c | pc = mem\[reg++\]
 
 The following are considered convenience instruction to interact with stack
 
 | OPC  | HEX  | Description
 |:----:|:----:|:----|
-| PUSH | 0x60 | mem[--reg] = ea
-| PSHR | 0x64 | for (i=0; i<16; ++i) if (ea & (1 << i)) memory.word[--reg] = regs[i]
-| POPR | 0x68 | for (i=15; i>0; --i) if (ea & (1 >> i)) regs[i] = memory.word[reg++]
+| PUSH | 0x60 | mem\[--reg\] = ea
+| PSHR | 0x64 | for (i=0; i<16; ++i) if (ea & (1 << i)) memory.word\[--reg\] = regs\[i\]
+| POPR | 0x68 | for (i=15; i>0; --i) if (ea & (1 >> i)) regs\[i\] = memory.word\[reg++\]
 	
 
 ### `REL` language
@@ -304,15 +308,23 @@ Run test program.
     40    # you answer with "40". The guess is correct
 ```
 
+## Source code
+
+Grab one of the tarballs at [https://github.com/RockingShip/xtools/releases](https://github.com/RockingShip/xtools/releases) or checkout the latest code:
+
+```sh
+  git clone https://github.com/RockingShip/xtools.git
+```
+
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning.
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/RockingShip/xtools/tags).
 
 ## License
 
-This project is licensed under the GPLv3 License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the GPLv3 License - see the [LICENSE.txt](LICENSE.txt) file for details
 
-## Acknowledgments
+# Acknowledgments
 
 * Ron Cain, Jim E. Hendrix and many others for Small-C. Hat tip for placing in public domain!
 * Digital Equipment for amazingly life path inspiring hardware and software

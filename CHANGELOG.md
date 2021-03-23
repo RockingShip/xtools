@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## 2021-03-23 16:29:37 [Version 2.3.0]
+
 ```
 2020-06-17 12:46:41 Drop "return 1" in expression stack as "expression" is not optional.
                     Less admin for code generation for stack based registers.
@@ -43,7 +45,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
                     Also reduce `fprintf()` usage.
 ```
 
-## [Release 2.2.0] 2020-06-11 21:47:31
+## 2020-06-11 21:47:31 [Version 2.2.0]
 
 Classic RISC architecture and absence of condition code register.
 16 data+8 flow machine instructions and 3 addressing modes.
@@ -115,7 +117,7 @@ Known issues:
 2020-06-04 22:40:44 Lowercase assembler.
 ```
 
-## [Release 2.1.0] 2020-06-04 12:44:07
+## 2020-06-04 12:44:07 [Version 2.1.0]
 
 Simplified and bugfixed `sym[]` (identifier) and `lval[]` (peephole) structures.
 More flexible pointer depth.
@@ -154,10 +156,13 @@ Dropped preprocessor and pointers to functions.
                     Preprocessor is an ancient language hack.
 ```
 
-## Release 2.0.0 2020-05-29 22:22:15
+## 2020-05-29 22:22:15 Release 2.0.0
 
+```
 Initial commit.
+```
 
-[Unreleased]: /RockingShip/xtools/compare/v2.2.0...HEAD
-[2.2.0]: /RockingShip/xtools-historic/compare/v2.1.0...v2.2.0
-[2.1.0]: /RockingShip/xtools-historic/compare/v2.0.0...v2.1.0
+[Unreleased]: https://github.com/RockingShip/RockingShip/xtools/compare/v2.3.0...HEAD
+[Version 2.3.0]: https://github.com/RockingShip/RockingShip/xtools-historic/compare/v2.2.0...v2.3.0
+[Version 2.2.0]: https://github.com/RockingShip/RockingShip/xtools-historic/compare/v2.1.0...v2.2.0
+[Version 2.1.0]: https://github.com/RockingShip/RockingShip/xtools-historic/compare/v2.0.0...v2.1.0
