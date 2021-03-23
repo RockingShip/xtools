@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+```
+2021-03-23 16:41:50 Added: `moonwalk` theme.
+```
+
 ## 2021-03-23 16:29:37 [Version 2.3.0]
 
 ```
