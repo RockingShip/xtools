@@ -10,6 +10,9 @@ image: assets/favimage-472x472.jpg
 
 Minimalistic C-Compiler/Assembler/Linker/Archiver intended for supporting the "untangle" fractal engine.
 
+Instead of an ad with tracking...  
+Like to [donate ![opencollective](assets/opencollective-icon.svg)](https://opencollective.com/RockingShip) some appreciation for the use or inspiration this gives you?
+
 ### Welcome to the Wonderful World of keeping code simple
 
 An experimental toolchain for supporting the [untangle](https://github.com/RockingShip/untangle) fractal engine.

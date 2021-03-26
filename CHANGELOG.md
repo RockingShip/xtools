@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ```
+2021-03-26 19:15:21 Added: Donate button.
 2021-03-23 16:41:50 Added: `moonwalk` theme.
 ```
 
